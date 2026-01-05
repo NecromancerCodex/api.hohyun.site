@@ -16,10 +16,10 @@ RUN --mount=type=cache,target=/root/.gradle/caches \
 # 나머지 소스 코드 복사 (services는 gateway 내부에 포함)
 COPY gateway/ ./gateway/
 
-# 빌드 실행 (병렬 빌드 + 빌드 캐시 활용)
+# 빌드 실행 (상세한 로그 출력)
 RUN --mount=type=cache,target=/root/.gradle/caches \
     --mount=type=cache,target=/root/.gradle/wrapper \
-    gradle :gateway:build -x test --no-daemon --parallel --build-cache
+    gradle :gateway:build -x test --no-daemon --stacktrace --info
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine
