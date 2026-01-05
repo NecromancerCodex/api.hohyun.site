@@ -214,24 +214,30 @@ jobs:
               echo "=== Final Health Check ==="
               set +e  # Temporarily allow errors for health check
               HEALTH_RESPONSE=$(curl -s http://localhost:8080/actuator/health 2>&1)
-              set -e  # Re-enable exit on error
+              HEALTH_EXIT=$?
               
-              if [ -n "$HEALTH_RESPONSE" ]; then
-                echo "$HEALTH_RESPONSE" | head -20 || echo "$HEALTH_RESPONSE"
+              if [ $HEALTH_EXIT -eq 0 ] && [ -n "$HEALTH_RESPONSE" ]; then
+                echo "$HEALTH_RESPONSE"
               else
-                echo "Health check response empty"
+                echo "Health check: curl exit code $HEALTH_EXIT"
+                [ -n "$HEALTH_RESPONSE" ] && echo "$HEALTH_RESPONSE"
               fi
               echo ""
             fi
             
+            # Disable exit on error for final steps
+            set +e
+            
             echo "✅ Deployment Complete"
             # 배포 성공 마커 파일 생성 (나중에 확인용)
-            echo "DEPLOYMENT_SUCCESS=$(date +%s)" > /tmp/deployment_status.txt || true
+            echo "DEPLOYMENT_SUCCESS=$(date +%s)" > /tmp/deployment_status.txt 2>/dev/null || true
             
             # SSH 세션 정상 종료를 위한 짧은 대기
             sleep 1
             echo "Script completed successfully"
-            exit 0  # Explicit success exit
+            
+            # Explicit success exit (always exit 0 if we reach here)
+            exit 0
 
       - name: Verify Deployment via Health Check
         if: always()
