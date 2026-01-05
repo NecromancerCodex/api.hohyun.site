@@ -5,6 +5,9 @@ server:
       charset: UTF-8
       enabled: true
       force: true
+  tomcat:
+    relaxed-query-chars: "|,{,},[,]"
+    relaxed-path-chars: "|,{,},[,]"
 
 spring:
   application:
