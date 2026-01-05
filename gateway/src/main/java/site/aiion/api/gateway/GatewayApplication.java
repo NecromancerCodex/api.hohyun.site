@@ -10,19 +10,17 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 @SpringBootApplication
 @ComponentScan(basePackages = {
 	"site.aiion.api.gateway",
-	"site.aiion.api.oauth",
-	"site.aiion.api.user",
-	"site.aiion.api.diary"
+	"site.aiion.api.services"  // 모든 서비스 패키지 스캔 (user, diary, oauth)
 })
 @EntityScan(basePackages = {
-	"site.aiion.api.diary",
-	"site.aiion.api.diary.emotion",
-	"site.aiion.api.diary.mbti",
-	"site.aiion.api.user"
+	"site.aiion.api.services.diary",
+	"site.aiion.api.services.diary.emotion",
+	"site.aiion.api.services.diary.mbti",
+	"site.aiion.api.services.user"
 })
 @EnableJpaRepositories(basePackages = {
-	"site.aiion.api.user",
-	"site.aiion.api.diary"  // 하위 패키지(diary.emotion, diary.mbti) 자동 포함
+	"site.aiion.api.services.user",
+	"site.aiion.api.services.diary"  // 하위 패키지(diary.emotion, diary.mbti) 자동 포함
 })
 public class GatewayApplication {
 
