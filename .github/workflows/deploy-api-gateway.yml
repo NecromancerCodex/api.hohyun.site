@@ -22,6 +22,11 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 120s
+          command_timeout: 15m
+          debug: true
+          use_insecure_cipher: false
           script: |
             set -e
 
@@ -87,30 +92,38 @@ jobs:
               $DOCKER_IMAGE
 
             # 컨테이너 상태 확인
-            sleep 5
+            sleep 10
             echo "=== Container Status ==="
             docker ps -a | grep $CONTAINER_NAME || true
 
             echo ""
             echo "=== Container Logs ==="
-            docker logs --tail 30 $CONTAINER_NAME || true
+            docker logs --tail 50 $CONTAINER_NAME || true
+
+            echo ""
+            echo "=== Port Check ==="
+            sudo ss -tulpn | grep :8080 || echo "Port 8080 not listening"
+
+            echo ""
+            echo "=== Local Health Check ==="
+            curl -s http://localhost:8080/actuator/health || echo "Health check failed (service may still be starting)"
 
             echo ""
             echo "✅ Deployment Complete"
 
-      - name: Health Check
+      - name: External Health Check
         continue-on-error: true
         run: |
           echo "Waiting for service to start..."
           sleep 30
 
-          MAX_RETRIES=10
-          RETRY_DELAY=30
+          MAX_RETRIES=5
+          RETRY_DELAY=10
           SUCCESS=false
 
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Health check attempt $i/$MAX_RETRIES..."
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://${{ secrets.EC2_HOST }}:8080/actuator/health 2>/dev/null || echo "000")
+            response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 http://${{ secrets.EC2_HOST }}:8080/actuator/health 2>/dev/null || echo "000")
 
             if [ "$response" = "200" ]; then
               echo "✅ Service is healthy!"
@@ -125,30 +138,9 @@ jobs:
           done
 
           if [ "$SUCCESS" = "false" ]; then
-            echo "⚠️  Health check did not succeed"
+            echo "⚠️  External health check did not succeed"
+            echo "💡 This may be normal if EC2 security group doesn't allow external access"
             echo "💡 Check manually: ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'docker logs api-gateway'"
           fi
 
-      - name: Verify Service Status
-        if: always()
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            echo "=== Container Status ==="
-            docker ps -a | grep api-gateway || true
-
-            echo ""
-            echo "=== Port Check ==="
-            sudo ss -tulpn | grep :8080 || echo "Port 8080 not listening"
-
-            echo ""
-            echo "=== Container Logs ==="
-            docker logs --tail 50 api-gateway || true
-
-            echo ""
-            echo "=== Local Health Check ==="
-            curl -s http://localhost:8080/actuator/health || echo "Health check failed"
 
