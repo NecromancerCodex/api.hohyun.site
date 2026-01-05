@@ -109,11 +109,15 @@ jobs:
 
             # 기존 컨테이너 중지 및 제거
             echo "Stopping existing container..."
-            if sudo docker ps -a | grep -q $CONTAINER_NAME; then
-              echo "Found existing container, stopping and removing..."
+            set +e  # Temporarily allow errors
+            EXISTING=$(sudo docker ps -aq -f name=$CONTAINER_NAME)
+            set -e  # Re-enable exit on error
+            
+            if [ -n "$EXISTING" ]; then
+              echo "Found existing container: $EXISTING"
               sudo docker stop $CONTAINER_NAME 2>/dev/null || true
               sudo docker rm $CONTAINER_NAME 2>/dev/null || true
-              echo "Existing container removed"
+              echo "✅ Existing container removed"
             else
               echo "No existing container found"
             fi
