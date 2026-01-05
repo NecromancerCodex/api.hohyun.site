@@ -67,8 +67,14 @@ jobs:
 
             # 기존 컨테이너 중지 및 제거
             echo "Stopping existing container..."
-            sudo docker stop $CONTAINER_NAME 2>/dev/null || true
-            sudo docker rm $CONTAINER_NAME 2>/dev/null || true
+            if sudo docker ps -a | grep -q $CONTAINER_NAME; then
+              echo "Found existing container, stopping and removing..."
+              sudo docker stop $CONTAINER_NAME 2>/dev/null || true
+              sudo docker rm $CONTAINER_NAME 2>/dev/null || true
+              echo "Existing container removed"
+            else
+              echo "No existing container found"
+            fi
 
             # 최신 이미지 pull
             echo "Pulling latest image: $DOCKER_IMAGE"
@@ -107,27 +113,66 @@ jobs:
               --env-file ~/.env.api-gateway \
               $DOCKER_IMAGE; then
               echo "✅ Container started successfully"
+              CONTAINER_ID=$(sudo docker ps -q -f name=$CONTAINER_NAME)
+              echo "Container ID: $CONTAINER_ID"
             else
               echo "❌ Failed to start container"
+              echo "Checking for errors..."
+              sudo docker ps -a | grep $CONTAINER_NAME || true
+              sudo docker logs $CONTAINER_NAME 2>&1 | tail -20 || true
               exit 1
             fi
 
             # 컨테이너 상태 확인
+            echo "Waiting for container to initialize..."
             sleep 10
+            
             echo "=== Container Status ==="
-            sudo docker ps -a | grep $CONTAINER_NAME || true
+            if sudo docker ps | grep -q $CONTAINER_NAME; then
+              echo "✅ Container is running"
+              sudo docker ps | grep $CONTAINER_NAME
+            else
+              echo "⚠️  Container is not running"
+              sudo docker ps -a | grep $CONTAINER_NAME || true
+            fi
 
             echo ""
-            echo "=== Container Logs ==="
+            echo "=== Container Logs (last 50 lines) ==="
             sudo docker logs --tail 50 $CONTAINER_NAME || true
 
             echo ""
             echo "=== Port Check ==="
-            sudo ss -tulpn | grep :8080 || echo "Port 8080 not listening"
+            if sudo ss -tulpn | grep -q :8080; then
+              echo "✅ Port 8080 is listening"
+              sudo ss -tulpn | grep :8080
+            else
+              echo "⚠️  Port 8080 is not listening"
+            fi
 
             echo ""
             echo "=== Local Health Check ==="
-            curl -s http://localhost:8080/actuator/health || echo "Health check failed (service may still be starting)"
+            HEALTH_CHECK_RETRIES=5
+            HEALTH_CHECK_DELAY=5
+            HEALTH_CHECK_SUCCESS=false
+            
+            for i in $(seq 1 $HEALTH_CHECK_RETRIES); do
+              echo "Health check attempt $i/$HEALTH_CHECK_RETRIES..."
+              if curl -s -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "✅ Health check passed!"
+                HEALTH_CHECK_SUCCESS=true
+                break
+              else
+                echo "⏳ Service may still be starting..."
+                if [ $i -lt $HEALTH_CHECK_RETRIES ]; then
+                  sleep $HEALTH_CHECK_DELAY
+                fi
+              fi
+            done
+            
+            if [ "$HEALTH_CHECK_SUCCESS" = "false" ]; then
+              echo "⚠️  Health check did not pass after $HEALTH_CHECK_RETRIES attempts"
+              echo "💡 Service may need more time to start. Check logs for details."
+            fi
 
             echo ""
             echo "✅ Deployment Complete"
