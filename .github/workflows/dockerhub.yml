@@ -1,13 +1,17 @@
-name: Build & Push API Image to DockerHub
+name: Build & Push API Gateway Image to DockerHub
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'gateway/**'
+      - '.github/workflows/dockerhub.yml'
   workflow_dispatch:
 
 env:
-  IMAGE_NAME: labzang/api-labzang
+  DOCKER_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/api.hohyun.com
+  DOCKER_TAG: v1
 
 jobs:
   build-and-push:
@@ -27,11 +31,14 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./Dockerfile
+          file: ./gateway/Dockerfile
+          platforms: linux/amd64
           push: true
           tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
+            ${{ env.DOCKER_IMAGE }}:latest
+          cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
