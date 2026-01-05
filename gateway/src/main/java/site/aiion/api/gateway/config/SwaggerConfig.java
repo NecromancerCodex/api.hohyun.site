@@ -45,13 +45,13 @@ public class SwaggerConfig {
     }
     
     /**
-     * 모든 API를 포함하는 그룹
-     * packages-to-scan을 명시적으로 설정하여 컨트롤러 스캔 보장
+     * 기본 그룹 (모든 API 포함)
+     * GroupedOpenApi가 없으면 기본 스캔이 비활성화되므로 기본 그룹 추가
      */
     @Bean
-    public GroupedOpenApi allApis() {
+    public GroupedOpenApi defaultApi() {
         return GroupedOpenApi.builder()
-                .group("all-apis")
+                .group("default")
                 .displayName("All APIs")
                 .pathsToMatch("/api/**")
                 .packagesToScan("site.aiion.api.services", "site.aiion.api.gateway")
