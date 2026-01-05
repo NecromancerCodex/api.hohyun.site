@@ -24,42 +24,29 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 180s
-          command_timeout: 20m
+          timeout: 120s
+          command_timeout: 10m
+          script_stop: true
+          sync: false
           debug: false
-          use_insecure_cipher: false
           script: |
-            set +e  # Continue on error for non-critical commands
+            set -e  # Exit on error
 
             echo "=== Starting API Gateway Docker Deployment ==="
 
             DOCKER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/api.hohyun.com:v1"
             CONTAINER_NAME="api-gateway"
 
-            # Docker 설치 확인 및 설치
+            # Docker 설치 확인
             if ! command -v docker &> /dev/null; then
-              echo "Docker not found. Installing Docker..."
-              sudo apt-get update -y
-              sudo apt-get install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker $USER
-              echo "Docker installed successfully"
-            else
-              echo "Docker is already installed"
+              echo "Installing Docker..."
+              sudo apt-get update -y && sudo apt-get install -y docker.io
+              sudo systemctl start docker && sudo systemctl enable docker
             fi
             
-            # Docker 서비스 상태 확인
-            echo "Checking Docker service status..."
-            sudo systemctl status docker --no-pager || true
-            
-            # Docker 명령어가 작동하는지 확인 (sudo 필요할 수 있음)
-            echo "Testing Docker command..."
-            sudo docker --version || docker --version || echo "Docker command failed"
-            
-            # 현재 사용자가 docker 그룹에 있는지 확인
-            echo "Current user groups:"
-            groups
+            # Docker 서비스 확인
+            sudo systemctl is-active docker || sudo systemctl start docker
+            echo "Docker ready: $(sudo docker --version)"
 
             # Docker Hub 로그인 (sudo 사용)
             echo "Logging in to Docker Hub..."
@@ -124,92 +111,50 @@ jobs:
             fi
 
             # 컨테이너 상태 확인
-            echo "Waiting for container to initialize..."
-            sleep 10
+            echo "Waiting for container to initialize (5s)..."
+            sleep 5
             
             echo "=== Container Status ==="
             if sudo docker ps | grep -q $CONTAINER_NAME; then
               echo "✅ Container is running"
-              sudo docker ps | grep $CONTAINER_NAME
             else
-              echo "⚠️  Container is not running"
-              sudo docker ps -a | grep $CONTAINER_NAME || true
+              echo "❌ Container is not running!"
+              sudo docker ps -a | grep $CONTAINER_NAME
+              sudo docker logs --tail 30 $CONTAINER_NAME
+              exit 1
             fi
 
             echo ""
-            echo "=== Container Logs (last 50 lines) ==="
-            sudo docker logs --tail 50 $CONTAINER_NAME || true
-
-            echo ""
-            echo "=== Port Check ==="
-            if sudo ss -tulpn | grep -q :8080; then
-              echo "✅ Port 8080 is listening"
-              sudo ss -tulpn | grep :8080
-            else
-              echo "⚠️  Port 8080 is not listening"
-            fi
-
-            echo ""
-            echo "=== Local Health Check ==="
-            HEALTH_CHECK_RETRIES=5
-            HEALTH_CHECK_DELAY=5
-            HEALTH_CHECK_SUCCESS=false
-            
-            for i in $(seq 1 $HEALTH_CHECK_RETRIES); do
-              echo "Health check attempt $i/$HEALTH_CHECK_RETRIES..."
-              if curl -s -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+            echo "=== Quick Health Check ==="
+            # 3번만 재시도, 3초 간격
+            for i in 1 2 3; do
+              if curl -s -f -m 3 http://localhost:8080/actuator/health >/dev/null 2>&1; then
                 echo "✅ Health check passed!"
-                HEALTH_CHECK_SUCCESS=true
                 break
-              else
-                echo "⏳ Service may still be starting..."
-                if [ $i -lt $HEALTH_CHECK_RETRIES ]; then
-                  sleep $HEALTH_CHECK_DELAY
-                fi
               fi
+              [ $i -lt 3 ] && sleep 3
             done
-            
-            if [ "$HEALTH_CHECK_SUCCESS" = "false" ]; then
-              echo "⚠️  Health check did not pass after $HEALTH_CHECK_RETRIES attempts"
-              echo "💡 Service may need more time to start. Check logs for details."
-            fi
 
             echo ""
             echo "✅ Deployment Complete"
-            
-            # Exit with success code explicitly
-            exit 0
 
       - name: External Health Check
         continue-on-error: true
         run: |
-          echo "Waiting for service to start..."
-          sleep 30
+          echo "Waiting for service..."
+          sleep 15
 
-          MAX_RETRIES=5
-          RETRY_DELAY=10
-          SUCCESS=false
-
-          for i in $(seq 1 $MAX_RETRIES); do
-            echo "Health check attempt $i/$MAX_RETRIES..."
-            response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 http://${{ secrets.EC2_HOST }}:8080/actuator/health 2>/dev/null || echo "000")
-
-            if [ "$response" = "200" ]; then
+          for i in 1 2 3; do
+            echo "Health check $i/3..."
+            code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 http://${{ secrets.EC2_HOST }}:8080/actuator/health 2>/dev/null || echo "000")
+            
+            if [ "$code" = "200" ]; then
               echo "✅ Service is healthy!"
-              SUCCESS=true
-              break
-            else
-              echo "⚠️  Health check returned: $response"
-              if [ $i -lt $MAX_RETRIES ]; then
-                sleep $RETRY_DELAY
-              fi
+              exit 0
             fi
+            [ $i -lt 3 ] && sleep 8
           done
-
-          if [ "$SUCCESS" = "false" ]; then
-            echo "⚠️  External health check did not succeed"
-            echo "💡 This may be normal if EC2 security group doesn't allow external access"
-            echo "💡 Check manually: ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'docker logs api-gateway'"
-          fi
+          
+          echo "⚠️  External health check failed (may be due to security group settings)"
 
 
