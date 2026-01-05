@@ -58,6 +58,7 @@ public class GoogleController {
      * 프론트엔드에서 CLIENT ID를 노출하지 않고 인증 URL을 가져올 수 있도록 함
      */
     @GetMapping("/auth-url")
+    @Operation(summary = "구글 인증 URL 생성", description = "구글 OAuth 인증을 위한 URL을 생성합니다.")
     public ResponseEntity<Map<String, Object>> getGoogleAuthUrl(
             @RequestParam(required = false) String frontend_url,
             HttpServletRequest request) {
@@ -109,6 +110,7 @@ public class GoogleController {
      * Authorization Code를 받아서 바로 토큰 교환 및 JWT 생성 후 프론트엔드로 리다이렉트
      */
     @GetMapping("/callback")
+    @Operation(summary = "구글 OAuth 콜백", description = "구글 OAuth 인증 후 콜백을 처리합니다.")
     public RedirectView googleCallback(
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
@@ -346,6 +348,7 @@ public class GoogleController {
      * Next.js에서 성공으로 인식하도록 항상 성공 응답 반환
      */
     @GetMapping("/user")
+    @Operation(summary = "구글 사용자 정보 조회", description = "구글 OAuth 토큰을 사용하여 사용자 정보를 조회합니다.")
     public ResponseEntity<Map<String, Object>> googleUserInfo(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             HttpServletRequest request) {
