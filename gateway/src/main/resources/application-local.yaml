@@ -1,0 +1,30 @@
+# 로컬 개발용 프로파일
+# 실행 시 --spring.profiles.active=local 옵션 사용
+# 또는 SPRING_PROFILES_ACTIVE=local 환경 변수 설정
+
+spring:
+  datasource:
+    # 로컬 개발 시 데이터베이스 연결이 없어도 실행 가능하도록 설정
+    # 실제 사용 시에는 환경 변수로 설정하세요
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/test}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    # 데이터소스가 없어도 실행 가능하도록 (선택사항)
+    # continue-on-error: true
+  
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
+      ssl:
+        enabled: false  # 로컬 Redis는 SSL 없이 사용
+
+# AI 서비스 URL (로컬 개발 시)
+ai:
+  service:
+    rag:
+      url: ${AI_SERVICE_RAG_URL:http://localhost:8001}
+    vision:
+      url: ${AI_SERVICE_VISION_URL:http://localhost:8002}
+

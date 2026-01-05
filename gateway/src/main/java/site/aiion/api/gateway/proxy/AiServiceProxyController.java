@@ -26,22 +26,22 @@ public class AiServiceProxyController {
 
 	private final RestTemplate restTemplate;
 
-	// 환경 변수로 관리 (EC2 배포 시 localhost 사용)
-	@Value("${ai.service.rag.url:http://rag-service:8000}")
+	// 환경 변수로 관리
+	// Docker Compose: http://rag-service:8001, http://vision-service:8002
+	// EC2 독립 인스턴스: http://chat.hohyun.site:8001, http://vision.hohyun.site:8002
+	// Vision 서비스는 선택적 (나중에 배포 가능)
+	@Value("${ai.service.rag.url:http://chat.hohyun.site:8001}")
 	private String ragServiceUrl;
 
-	@Value("${ai.service.diffusers.url:http://diffusers-service:8001}")
-	private String diffusersServiceUrl;
-
-	@Value("${ai.service.yolo.url:http://yolo-service:8002}")
-	private String yoloServiceUrl;
+	@Value("${ai.service.vision.url:}")
+	private String visionServiceUrl;
 
 	public AiServiceProxyController(RestTemplate restTemplate)
 	{
 		this.restTemplate = restTemplate;
 	}
 
-	// YOLO 서비스 프록시
+	// YOLO 서비스 프록시 (vision-service 통합)
 	@RequestMapping({"/yolo/**"})
 	public ResponseEntity<String> proxyYoloService(
 			@RequestBody(required = false) String body,
@@ -49,7 +49,12 @@ public class AiServiceProxyController {
 			HttpServletRequest request,
 			@RequestHeader HttpHeaders headers)
 	{
-		return proxyRequest(yoloServiceUrl, body, method, request, headers);
+		// Vision 서비스가 배포되지 않은 경우 처리
+		if (visionServiceUrl == null || visionServiceUrl.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+					.body("{\"error\": \"Vision service is not available yet\"}");
+		}
+		return proxyRequest(visionServiceUrl + "/yolo", body, method, request, headers);
 	}
 
 	// RAG OpenAI 서비스 프록시
@@ -60,7 +65,9 @@ public class AiServiceProxyController {
 			HttpServletRequest request,
 			@RequestHeader HttpHeaders headers)
 	{
-		return proxyRequest(ragServiceUrl + "/openai", body, method, request, headers);
+		// ragServiceUrl은 base URL만 포함 (예: http://chat.hohyun.site:8001)
+		// /api/rag/openai/** → /rag/openai/**로 변환되어 ragServiceUrl과 결합
+		return proxyRequest(ragServiceUrl, body, method, request, headers);
 	}
 
 	// RAG Llama 서비스 프록시
@@ -71,10 +78,12 @@ public class AiServiceProxyController {
 			HttpServletRequest request,
 			@RequestHeader HttpHeaders headers)
 	{
-		return proxyRequest(ragServiceUrl + "/llama", body, method, request, headers);
+		// ragServiceUrl은 base URL만 포함 (예: http://chat.hohyun.site:8001)
+		// /api/rag/llama/** → /rag/llama/**로 변환되어 ragServiceUrl과 결합
+		return proxyRequest(ragServiceUrl, body, method, request, headers);
 	}
 
-	// Diffusers 서비스 프록시
+	// Diffusers 서비스 프록시 (vision-service 통합)
 	@RequestMapping({"/diffusers/**"})
 	public ResponseEntity<String> proxyDiffusersService(
 			@RequestBody(required = false) String body,
@@ -82,7 +91,12 @@ public class AiServiceProxyController {
 			HttpServletRequest request,
 			@RequestHeader HttpHeaders headers)
 	{
-		return proxyRequest(diffusersServiceUrl, body, method, request, headers);
+		// Vision 서비스가 배포되지 않은 경우 처리
+		if (visionServiceUrl == null || visionServiceUrl.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+					.body("{\"error\": \"Vision service is not available yet\"}");
+		}
+		return proxyRequest(visionServiceUrl + "/diffusers", body, method, request, headers);
 	}
 
 	private ResponseEntity<String> proxyRequest(

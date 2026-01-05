@@ -54,16 +54,15 @@ kakao:
   redirect-uri: ${KAKAO_REDIRECT_URI:}
 
 # AI 서비스 URL 설정
-# Docker Compose 환경: 컨테이너 이름 사용 (rag-service, diffusers-service, yolo-service)
-# EC2 단일 인스턴스: localhost 사용
+# Docker Compose 환경: 컨테이너 이름 사용 (http://rag-service:8001, http://vision-service:8002)
+# EC2 독립 인스턴스: 도메인 사용 (http://chat.hohyun.site:8001, http://vision.hohyun.site:8002)
+# Vision 서비스는 선택적 (나중에 배포 가능)
 ai:
   service:
     rag:
-      url: ${AI_SERVICE_RAG_URL:http://rag-service:8000}
-    diffusers:
-      url: ${AI_SERVICE_DIFFUSERS_URL:http://diffusers-service:8001}
-    yolo:
-      url: ${AI_SERVICE_YOLO_URL:http://yolo-service:8002}
+      url: ${AI_SERVICE_RAG_URL:http://chat.hohyun.site:8001}
+    vision:
+      url: ${AI_SERVICE_VISION_URL:}  # 비어있으면 vision 서비스 미사용
 
 logging:
   level:
