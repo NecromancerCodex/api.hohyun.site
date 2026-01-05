@@ -17,46 +17,62 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
+        continue-on-error: false
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 120s
-          command_timeout: 15m
-          debug: true
+          timeout: 180s
+          command_timeout: 20m
+          debug: false
           use_insecure_cipher: false
           script: |
-            set -e
+            set +e  # Continue on error for non-critical commands
 
             echo "=== Starting API Gateway Docker Deployment ==="
 
             DOCKER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/api.hohyun.com:v1"
             CONTAINER_NAME="api-gateway"
 
-            # Docker 설치 확인
+            # Docker 설치 확인 및 설치
             if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo apt-get update
+              echo "Docker not found. Installing Docker..."
+              sudo apt-get update -y
               sudo apt-get install -y docker.io
               sudo systemctl start docker
               sudo systemctl enable docker
               sudo usermod -aG docker $USER
+              echo "Docker installed successfully"
+            else
+              echo "Docker is already installed"
             fi
+            
+            # Docker 서비스 상태 확인
+            echo "Checking Docker service status..."
+            sudo systemctl status docker --no-pager || true
+            
+            # Docker 명령어가 작동하는지 확인 (sudo 필요할 수 있음)
+            echo "Testing Docker command..."
+            sudo docker --version || docker --version || echo "Docker command failed"
+            
+            # 현재 사용자가 docker 그룹에 있는지 확인
+            echo "Current user groups:"
+            groups
 
-            # Docker Hub 로그인
+            # Docker Hub 로그인 (sudo 사용)
             echo "Logging in to Docker Hub..."
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin || true
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin || true
 
             # 기존 컨테이너 중지 및 제거
             echo "Stopping existing container..."
-            docker stop $CONTAINER_NAME 2>/dev/null || true
-            docker rm $CONTAINER_NAME 2>/dev/null || true
+            sudo docker stop $CONTAINER_NAME 2>/dev/null || true
+            sudo docker rm $CONTAINER_NAME 2>/dev/null || true
 
             # 최신 이미지 pull
             echo "Pulling latest image: $DOCKER_IMAGE"
-            docker pull $DOCKER_IMAGE
+            sudo docker pull $DOCKER_IMAGE
 
             # 환경 변수 파일 생성
             echo "Creating .env file..."
@@ -84,21 +100,26 @@ jobs:
 
             # Docker 컨테이너 실행
             echo "Starting Docker container..."
-            docker run -d \
+            if sudo docker run -d \
               --name $CONTAINER_NAME \
               --restart unless-stopped \
               -p 8080:8080 \
               --env-file ~/.env.api-gateway \
-              $DOCKER_IMAGE
+              $DOCKER_IMAGE; then
+              echo "✅ Container started successfully"
+            else
+              echo "❌ Failed to start container"
+              exit 1
+            fi
 
             # 컨테이너 상태 확인
             sleep 10
             echo "=== Container Status ==="
-            docker ps -a | grep $CONTAINER_NAME || true
+            sudo docker ps -a | grep $CONTAINER_NAME || true
 
             echo ""
             echo "=== Container Logs ==="
-            docker logs --tail 50 $CONTAINER_NAME || true
+            sudo docker logs --tail 50 $CONTAINER_NAME || true
 
             echo ""
             echo "=== Port Check ==="
@@ -110,6 +131,9 @@ jobs:
 
             echo ""
             echo "✅ Deployment Complete"
+            
+            # Exit with success code explicitly
+            exit 0
 
       - name: External Health Check
         continue-on-error: true
