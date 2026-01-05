@@ -24,11 +24,12 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 120s
+          timeout: 180s
           command_timeout: 10m
           script_stop: true
-          sync: false
+          sync: true
           debug: false
+          use_insecure_cipher: false
           script: |
             set -e  # Exit on error
 
@@ -111,32 +112,20 @@ jobs:
             fi
 
             # 컨테이너 상태 확인
-            echo "Waiting for container to initialize (5s)..."
-            sleep 5
-            
-            echo "=== Container Status ==="
-            if sudo docker ps | grep -q $CONTAINER_NAME; then
-              echo "✅ Container is running"
-            else
-              echo "❌ Container is not running!"
-              sudo docker ps -a | grep $CONTAINER_NAME
+            sleep 3
+            if ! sudo docker ps | grep -q $CONTAINER_NAME; then
+              echo "❌ Container failed to start!"
               sudo docker logs --tail 30 $CONTAINER_NAME
               exit 1
             fi
-
-            echo ""
-            echo "=== Quick Health Check ==="
-            # 3번만 재시도, 3초 간격
-            for i in 1 2 3; do
-              if curl -s -f -m 3 http://localhost:8080/actuator/health >/dev/null 2>&1; then
-                echo "✅ Health check passed!"
-                break
-              fi
-              [ $i -lt 3 ] && sleep 3
-            done
-
-            echo ""
+            
+            echo "✅ Container is running"
+            
+            # 빠른 헬스 체크 (타임아웃 2초)
+            curl -s -f -m 2 http://localhost:8080/actuator/health >/dev/null 2>&1 && echo "✅ Health check passed" || echo "⚠️  Health check pending"
+            
             echo "✅ Deployment Complete"
+            exit 0
 
       - name: External Health Check
         continue-on-error: true
