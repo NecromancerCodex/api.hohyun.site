@@ -19,7 +19,7 @@ import site.aiion.api.services.user.common.domain.Messenger;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping(value = "/api/users", produces = MediaType.APPLICATION_JSON_VALUE + ";charset=UTF-8")
-@Tag(name = "01. User", description = "사용자 관리 기능")
+@Tag(name = "User", description = "사용자 관리 기능")
 public class UserController {
 
     private final UserService userService;

@@ -20,7 +20,7 @@ import site.aiion.api.services.diary.util.JwtTokenUtil;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/diaries")
-@Tag(name = "01. Diary", description = "일기 관리 기능")
+@Tag(name = "Diary", description = "일기 관리 기능")
 public class DiaryController {
 
     private final DiaryService diaryService;
