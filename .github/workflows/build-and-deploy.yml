@@ -116,37 +116,31 @@ jobs:
             echo "Pulling latest image: $DOCKER_IMAGE"
             sudo docker pull $DOCKER_IMAGE
 
-            # 환경 변수 파일 생성
-            echo "Creating .env file..."
-            {
-              echo "SPRING_PROFILES_ACTIVE=production"
-              echo "SPRING_DATASOURCE_URL=${{ secrets.NEON_CONNECTION_STRING }}"
-              echo "SPRING_DATASOURCE_USERNAME=${{ secrets.NEON_USER }}"
-              echo "SPRING_DATASOURCE_PASSWORD=${{ secrets.NEON_PASSWORD }}"
-              echo "SPRING_DATA_REDIS_HOST=${{ secrets.UPSTASH_REDIS_HOST }}"
-              echo "SPRING_DATA_REDIS_PORT=${{ secrets.UPSTASH_REDIS_PORT }}"
-              echo "SPRING_DATA_REDIS_PASSWORD=${{ secrets.UPSTASH_REDIS_PASSWORD }}"
-              echo "JWT_SECRET=${{ secrets.JWT_SECRET }}"
-              echo "GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}"
-              echo "GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}"
-              echo "GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}"
-              echo "NAVER_CLIENT_ID=${{ secrets.NAVER_CLIENT_ID }}"
-              echo "NAVER_CLIENT_SECRET=${{ secrets.NAVER_CLIENT_SECRET }}"
-              echo "NAVER_REDIRECT_URI=${{ secrets.NAVER_REDIRECT_URI }}"
-              echo "KAKAO_REST_API_KEY=${{ secrets.KAKAO_REST_API_KEY }}"
-              echo "KAKAO_CLIENT_SECRET=${{ secrets.KAKAO_CLIENT_SECRET }}"
-              echo "KAKAO_REDIRECT_URI=${{ secrets.KAKAO_REDIRECT_URI }}"
-              echo "AI_SERVICE_RAG_URL=${{ secrets.AI_SERVICE_RAG_URL }}"
-              echo "AI_SERVICE_VISION_URL=${{ secrets.AI_SERVICE_VISION_URL }}"
-            } > ~/.env.api-gateway
-
-            # Docker 컨테이너 실행
-            echo "Starting Docker container..."
+            # Docker 컨테이너 실행 (GitHub Secrets에서 직접 환경 변수 전달)
+            echo "Starting Docker container with environment variables from GitHub Secrets..."
             if sudo docker run -d \
               --name $CONTAINER_NAME \
               --restart unless-stopped \
               -p 8080:8080 \
-              --env-file ~/.env.api-gateway \
+              -e SPRING_PROFILES_ACTIVE=production \
+              -e SPRING_DATASOURCE_URL="${{ secrets.NEON_CONNECTION_STRING }}" \
+              -e SPRING_DATASOURCE_USERNAME="${{ secrets.NEON_USER }}" \
+              -e SPRING_DATASOURCE_PASSWORD="${{ secrets.NEON_PASSWORD }}" \
+              -e SPRING_DATA_REDIS_HOST="${{ secrets.UPSTASH_REDIS_HOST }}" \
+              -e SPRING_DATA_REDIS_PORT="${{ secrets.UPSTASH_REDIS_PORT }}" \
+              -e SPRING_DATA_REDIS_PASSWORD="${{ secrets.UPSTASH_REDIS_PASSWORD }}" \
+              -e JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+              -e GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}" \
+              -e GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}" \
+              -e GOOGLE_REDIRECT_URI="${{ secrets.GOOGLE_REDIRECT_URI }}" \
+              -e NAVER_CLIENT_ID="${{ secrets.NAVER_CLIENT_ID }}" \
+              -e NAVER_CLIENT_SECRET="${{ secrets.NAVER_CLIENT_SECRET }}" \
+              -e NAVER_REDIRECT_URI="${{ secrets.NAVER_REDIRECT_URI }}" \
+              -e KAKAO_REST_API_KEY="${{ secrets.KAKAO_REST_API_KEY }}" \
+              -e KAKAO_CLIENT_SECRET="${{ secrets.KAKAO_CLIENT_SECRET }}" \
+              -e KAKAO_REDIRECT_URI="${{ secrets.KAKAO_REDIRECT_URI }}" \
+              -e AI_SERVICE_RAG_URL="${{ secrets.AI_SERVICE_RAG_URL }}" \
+              -e AI_SERVICE_VISION_URL="${{ secrets.AI_SERVICE_VISION_URL }}" \
               $DOCKER_IMAGE; then
               echo "✅ Container started successfully"
               CONTAINER_ID=$(sudo docker ps -q -f name=$CONTAINER_NAME)
