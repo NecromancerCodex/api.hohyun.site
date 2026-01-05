@@ -7,7 +7,6 @@ import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -42,20 +41,6 @@ public class SwaggerConfig {
         return new OpenAPI()
                 .addSecurityItem(securityRequirement)
                 .components(components);
-    }
-    
-    /**
-     * 기본 그룹 (모든 API 포함)
-     * GroupedOpenApi가 없으면 기본 스캔이 비활성화되므로 기본 그룹 추가
-     */
-    @Bean
-    public GroupedOpenApi defaultApi() {
-        return GroupedOpenApi.builder()
-                .group("default")
-                .displayName("All APIs")
-                .pathsToMatch("/api/**")
-                .packagesToScan("site.aiion.api.services", "site.aiion.api.gateway")
-                .build();
     }
 }
 

@@ -85,7 +85,7 @@ springdoc:
   use-management-port: false
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
-  # packages-to-scan 제거 - 기본 스캔 사용 (모든 @RestController 자동 감지)
+  packages-to-scan: site.aiion.api
 
 management:
   endpoints:
