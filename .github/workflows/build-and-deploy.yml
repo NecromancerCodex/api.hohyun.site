@@ -184,6 +184,8 @@ jobs:
             echo ""
             
             # 애플리케이션 시작 대기 (최대 60초)
+            # Disable exit on error for health check loop
+            set +e
             echo "Waiting for application to start..."
             MAX_WAIT=60
             WAIT_INTERVAL=5
@@ -205,14 +207,13 @@ jobs:
             if [ "$APP_READY" = "false" ]; then
               echo "⚠️  Application did not become ready within ${MAX_WAIT}s"
               echo "=== Container Logs (last 50 lines) ==="
-              sudo docker logs --tail 50 $CONTAINER_NAME || true
+              sudo docker logs --tail 50 $CONTAINER_NAME 2>/dev/null || true
               echo ""
               echo "⚠️  Deployment completed but application may need more time"
             else
               # 최종 헬스 체크
               echo ""
               echo "=== Final Health Check ==="
-              set +e  # Temporarily allow errors for health check
               HEALTH_RESPONSE=$(curl -s http://localhost:8080/actuator/health 2>&1)
               HEALTH_EXIT=$?
               
@@ -224,9 +225,6 @@ jobs:
               fi
               echo ""
             fi
-            
-            # Disable exit on error for final steps
-            set +e
             
             echo "✅ Deployment Complete"
             # 배포 성공 마커 파일 생성 (나중에 확인용)
