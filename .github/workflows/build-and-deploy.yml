@@ -75,49 +75,33 @@ jobs:
             DOCKER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/api.hohyun.com:${{ env.DOCKER_TAG }}"
             CONTAINER_NAME="api-gateway"
 
-            # Docker 설치 및 확인
-            echo "=== Checking Docker Installation ==="
-            if ! command -v docker &> /dev/null && ! sudo command -v docker &> /dev/null; then
-              echo "Docker not found. Installing Docker..."
+            # Docker 확인
+            echo "=== Checking Docker ==="
+            if sudo docker --version >/dev/null 2>&1; then
+              echo "✅ Docker is installed: $(sudo docker --version)"
+            else
+              echo "Installing Docker..."
               sudo apt-get update -y
               sudo apt-get install -y docker.io
               sudo systemctl start docker
               sudo systemctl enable docker
+              sleep 2
               
-              # Docker 설치 확인
-              if ! sudo docker --version &> /dev/null; then
+              if ! sudo docker --version >/dev/null 2>&1; then
                 echo "❌ Docker installation failed!"
                 exit 1
               fi
-              
-              echo "✅ Docker installed successfully"
-            else
-              echo "Docker is already installed"
+              echo "✅ Docker installed"
             fi
             
-            # Docker 서비스 확인 및 시작
+            # Docker 서비스 시작
             if ! sudo systemctl is-active --quiet docker; then
               echo "Starting Docker service..."
               sudo systemctl start docker
               sleep 2
             fi
             
-            # Docker 서비스 상태 확인
-            if ! sudo systemctl is-active --quiet docker; then
-              echo "❌ Docker service failed to start!"
-              sudo systemctl status docker --no-pager || true
-              exit 1
-            fi
-            
-            # Docker 명령어 테스트
-            DOCKER_VERSION=$(sudo docker --version 2>&1)
-            if [ $? -ne 0 ]; then
-              echo "❌ Docker command failed: $DOCKER_VERSION"
-              exit 1
-            fi
-            
-            echo "✅ Docker ready: $DOCKER_VERSION"
-            echo "Docker service status: $(sudo systemctl is-active docker)"
+            echo "✅ Docker service is active"
 
             # Docker Hub 로그인 (sudo 사용)
             echo "Logging in to Docker Hub..."
