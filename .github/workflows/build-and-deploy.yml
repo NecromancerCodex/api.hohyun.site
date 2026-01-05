@@ -50,7 +50,7 @@ jobs:
 
     steps:
       - name: Deploy to EC2
-        continue-on-error: false
+        continue-on-error: true
         id: deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
