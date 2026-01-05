@@ -50,23 +50,8 @@ jobs:
     if: success()
 
     steps:
-      - name: Test SSH Connection
-        continue-on-error: true
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          port: 22
-          timeout: 30s
-          command_timeout: 30s
-          script: |
-            echo "SSH connection test successful"
-            hostname
-            uptime
-
       - name: Deploy to EC2
-        continue-on-error: true
+        continue-on-error: false
         id: deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
