@@ -107,20 +107,11 @@ jobs:
             echo "Logging in to Docker Hub..."
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | sudo docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin || true
 
-            # 기존 컨테이너 중지 및 제거
-            echo "Stopping existing container..."
-            set +e  # Temporarily allow errors
-            EXISTING=$(sudo docker ps -aq -f name=$CONTAINER_NAME)
-            set -e  # Re-enable exit on error
-            
-            if [ -n "$EXISTING" ]; then
-              echo "Found existing container: $EXISTING"
-              sudo docker stop $CONTAINER_NAME 2>/dev/null || true
-              sudo docker rm $CONTAINER_NAME 2>/dev/null || true
-              echo "✅ Existing container removed"
-            else
-              echo "No existing container found"
-            fi
+            # 기존 컨테이너 중지 및 제거 (에러 무시)
+            echo "Cleaning up old containers..."
+            sudo docker stop $CONTAINER_NAME 2>/dev/null || echo "No running container to stop"
+            sudo docker rm $CONTAINER_NAME 2>/dev/null || echo "No container to remove"
+            echo "✅ Cleanup complete"
 
             # 최신 이미지 pull
             echo "Pulling latest image: $DOCKER_IMAGE"
