@@ -40,7 +40,6 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_IMAGE }}:${{ env.DOCKER_TAG }}
-            ${{ env.DOCKER_IMAGE }}:latest
           cache-from: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_IMAGE }}:buildcache,mode=max
 
@@ -213,7 +212,15 @@ jobs:
               # 최종 헬스 체크
               echo ""
               echo "=== Final Health Check ==="
-              curl -s http://localhost:8080/actuator/health | head -20 || echo "Health check failed"
+              set +e  # Temporarily allow errors for health check
+              HEALTH_RESPONSE=$(curl -s http://localhost:8080/actuator/health 2>&1)
+              set -e  # Re-enable exit on error
+              
+              if [ -n "$HEALTH_RESPONSE" ]; then
+                echo "$HEALTH_RESPONSE" | head -20 || echo "$HEALTH_RESPONSE"
+              else
+                echo "Health check response empty"
+              fi
               echo ""
             fi
             
@@ -224,6 +231,7 @@ jobs:
             # SSH 세션 정상 종료를 위한 짧은 대기
             sleep 1
             echo "Script completed successfully"
+            exit 0  # Explicit success exit
 
       - name: Verify Deployment via Health Check
         if: always()
