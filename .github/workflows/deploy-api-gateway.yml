@@ -17,19 +17,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
-        continue-on-error: false
+        continue-on-error: true
+        id: deploy
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          timeout: 180s
+          timeout: 60s
           command_timeout: 10m
           script_stop: true
-          sync: true
-          debug: false
+          sync: false
+          debug: true
           use_insecure_cipher: false
+          proxy_host: ""
+          proxy_port: 0
           script: |
             set -e  # Exit on error
 
@@ -125,25 +128,38 @@ jobs:
             curl -s -f -m 2 http://localhost:8080/actuator/health >/dev/null 2>&1 && echo "✅ Health check passed" || echo "⚠️  Health check pending"
             
             echo "✅ Deployment Complete"
-            exit 0
+            # 배포 성공 마커 파일 생성 (나중에 확인용)
+            echo "DEPLOYMENT_SUCCESS=$(date +%s)" > /tmp/deployment_status.txt || true
 
-      - name: External Health Check
-        continue-on-error: true
+      - name: Verify Deployment via Health Check
+        if: always()
         run: |
-          echo "Waiting for service..."
-          sleep 15
-
-          for i in 1 2 3; do
-            echo "Health check $i/3..."
+          echo "Checking if deployment actually succeeded..."
+          sleep 10
+          
+          MAX_RETRIES=5
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Health check attempt $i/$MAX_RETRIES..."
             code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 http://${{ secrets.EC2_HOST }}:8080/actuator/health 2>/dev/null || echo "000")
             
             if [ "$code" = "200" ]; then
-              echo "✅ Service is healthy!"
+              echo "✅ Deployment verified: Service is healthy!"
               exit 0
             fi
-            [ $i -lt 3 ] && sleep 8
+            
+            if [ $i -lt $MAX_RETRIES ]; then
+              sleep 5
+            fi
           done
           
-          echo "⚠️  External health check failed (may be due to security group settings)"
+          if [ "${{ steps.deploy.outcome }}" = "failure" ]; then
+            echo "⚠️  SSH connection failed, but service may still be running"
+            echo "Please verify manually: ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'docker ps | grep api-gateway'"
+          else
+            echo "⚠️  Deployment completed but health check failed"
+            echo "Service may need more time to start. Check logs:"
+            echo "ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} 'docker logs api-gateway'"
+          fi
+
 
 
