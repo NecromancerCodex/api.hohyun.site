@@ -76,7 +76,7 @@ springdoc:
     path: /v3/api-docs
     enabled: true
   swagger-ui:
-    path: /docs
+    path: /swagger-ui.html
     enabled: true
     try-it-out-enabled: true
     operations-sorter: method
@@ -85,7 +85,7 @@ springdoc:
   use-management-port: false
   default-consumes-media-type: application/json
   default-produces-media-type: application/json
-  packages-to-scan: site.aiion.api.services
+  packages-to-scan: site.aiion.api.services,site.aiion.api.gateway
 
 management:
   endpoints:
