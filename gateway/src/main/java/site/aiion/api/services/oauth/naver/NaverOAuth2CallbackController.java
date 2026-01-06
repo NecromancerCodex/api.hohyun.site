@@ -30,8 +30,9 @@ public class NaverOAuth2CallbackController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
-            @RequestParam(required = false) String error_description) {
-        return naverController.naverCallback(code, state, error, error_description);
+            @RequestParam(required = false) String error_description,
+            jakarta.servlet.http.HttpServletResponse response) {
+        return naverController.naverCallback(code, state, error, error_description, response);
     }
 }
 

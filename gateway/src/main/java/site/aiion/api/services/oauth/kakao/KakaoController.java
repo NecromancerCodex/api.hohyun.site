@@ -15,7 +15,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/api/kakao")
@@ -136,7 +138,8 @@ public class KakaoController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
-            @RequestParam(required = false) String error_description) {
+            @RequestParam(required = false) String error_description,
+            HttpServletResponse response) {
         
         System.out.println("=== 카카오 콜백 요청 수신 ===");
         System.out.println("Code: " + code);
@@ -236,11 +239,20 @@ public class KakaoController {
                 tokenService.saveAccessToken("kakao", String.valueOf(appUserId), jwtAccessToken, 3600);
                 tokenService.saveRefreshToken("kakao", String.valueOf(appUserId), jwtRefreshToken, 2592000);
                 
-                // 5. 프론트엔드로 리다이렉트 (JWT 토큰 포함)
-                String redirectUrl = frontendUrl + "/login/callback?provider=kakao&token=" + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
+                // 6. Refresh Token을 HttpOnly 쿠키로 설정
                 if (jwtRefreshToken != null) {
-                    redirectUrl += "&refresh_token=" + URLEncoder.encode(jwtRefreshToken, StandardCharsets.UTF_8);
+                    Cookie refreshTokenCookie = new Cookie("refresh_token", jwtRefreshToken);
+                    refreshTokenCookie.setHttpOnly(true); // XSS 방어
+                    refreshTokenCookie.setSecure(true); // HTTPS only
+                    refreshTokenCookie.setPath("/"); // 모든 경로에서 접근 가능
+                    refreshTokenCookie.setMaxAge(30 * 24 * 60 * 60); // 30일
+                    refreshTokenCookie.setAttribute("SameSite", "Lax"); // CSRF 방어
+                    response.addCookie(refreshTokenCookie);
+                    System.out.println("Refresh Token을 HttpOnly 쿠키로 설정 완료");
                 }
+                
+                // 7. 프론트엔드로 리다이렉트 (Access Token만 URL에 포함)
+                String redirectUrl = frontendUrl + "/login/callback?provider=kakao&token=" + URLEncoder.encode(jwtAccessToken, StandardCharsets.UTF_8);
                 
                 System.out.println("JWT 토큰 생성 완료, 프론트엔드로 리다이렉트: " + redirectUrl);
                 return new RedirectView(redirectUrl);

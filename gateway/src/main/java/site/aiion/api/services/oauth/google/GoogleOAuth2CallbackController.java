@@ -30,18 +30,10 @@ public class GoogleOAuth2CallbackController {
             @RequestParam(required = false) String code,
             @RequestParam(required = false) String state,
             @RequestParam(required = false) String error,
-            @RequestParam(required = false) String error_description) {
+            @RequestParam(required = false) String error_description,
+            jakarta.servlet.http.HttpServletResponse response) {
         // GoogleController의 googleCallback 메서드 호출
-        // 하지만 private이므로 직접 호출 불가능
-        // 대신 GoogleController를 통해 처리하도록 리다이렉트
-        // 또는 GoogleController의 메서드를 public으로 변경하고 직접 호출
-        
-        // 임시 해결책: GoogleController의 googleCallback 메서드를 public으로 변경 필요
-        // 또는 GoogleController에 직접 접근할 수 있는 방법 필요
-        
-        // 가장 간단한 방법: GoogleController의 googleCallback 로직을 별도 서비스로 분리
-        // 하지만 빠른 해결을 위해 GoogleController의 googleCallback을 직접 호출
-        return googleController.googleCallback(code, state, error, error_description);
+        return googleController.googleCallback(code, state, error, error_description, response);
     }
 }
 
