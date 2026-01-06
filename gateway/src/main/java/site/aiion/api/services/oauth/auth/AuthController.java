@@ -167,8 +167,7 @@ public class AuthController {
                     String provider = jwtTokenProvider.getProviderFromToken(refreshToken);
                     
                     if (userId != null && provider != null) {
-                        tokenService.deleteAccessToken(provider, userId);
-                        tokenService.deleteRefreshToken(provider, userId);
+                        tokenService.deleteTokens(provider, userId);
                         System.out.println("Redis에서 토큰 삭제 완료: userId=" + userId + ", provider=" + provider);
                     }
                 } catch (Exception e) {

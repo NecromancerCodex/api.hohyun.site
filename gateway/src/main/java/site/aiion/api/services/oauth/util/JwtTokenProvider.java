@@ -92,6 +92,21 @@ public class JwtTokenProvider {
     }
     
     /**
+     * JWT 토큰에서 Provider 추출
+     * @param token JWT 토큰
+     * @return OAuth2 제공자 (kakao, naver, google)
+     */
+    public String getProviderFromToken(String token) {
+        Claims claims = Jwts.parser()
+                .verifyWith(getSigningKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+        
+        return claims.get("provider", String.class);
+    }
+    
+    /**
      * JWT 토큰에서 모든 클레임 추출
      * @param token JWT 토큰
      * @return 클레임 정보
