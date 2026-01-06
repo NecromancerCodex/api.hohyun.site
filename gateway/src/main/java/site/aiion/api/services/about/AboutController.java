@@ -25,7 +25,7 @@ public class AboutController {
     private final JwtTokenUtil jwtTokenUtil;
 
     @GetMapping("/user")
-    @Operation(summary = "JWT 토큰 기반 자기소개글 조회", description = "JWT 토큰에서 사용자 ID를 추출하여 해당 사용자의 자기소개글을 조회합니다.")
+    @Operation(summary = "자기소개글 조회", description = "userId 1의 자기소개글을 조회합니다. 인증 필요.")
     public Messenger findByUserIdFromToken(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
         // Authorization 헤더 검증
@@ -45,77 +45,106 @@ public class AboutController {
                     .build();
         }
 
-        // 토큰에서 userId 추출
-        Long userId = jwtTokenUtil.getUserIdFromToken(token);
-        if (userId == null) {
+        // 토큰에서 userId 추출 (인증 확인용)
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
             return Messenger.builder()
                     .code(401)
                     .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
                     .build();
         }
 
-        return aboutService.findByUserId(userId);
+        // 항상 userId 1의 자기소개글을 조회 (모든 로그인 사용자가 볼 수 있음)
+        return aboutService.findByUserId(1L);
     }
 
     @PostMapping
-    @Operation(summary = "자기소개글 저장", description = "새로운 자기소개글을 저장합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "자기소개글 저장", description = "새로운 자기소개글을 저장합니다. userId 1만 권한이 있습니다.")
     public Messenger save(
             @RequestBody AboutModel aboutModel,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // JWT 토큰에서 userId 추출 및 설정
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    // 토큰의 userId로 덮어쓰기 (보안 강화)
-                    aboutModel.setUserId(tokenUserId);
-                }
-            }
-        }
-
-        if (aboutModel.getUserId() == null) {
+        // JWT 토큰에서 userId 추출 및 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Messenger.builder()
-                    .code(400)
-                    .message("사용자 ID가 필요합니다.")
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
                     .build();
         }
 
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+
+        // userId 1만 자기소개글 작성 권한 있음
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("자기소개글 작성 권한이 없습니다. (userId 1만 가능)")
+                    .build();
+        }
+
+        aboutModel.setUserId(tokenUserId);
         return aboutService.save(aboutModel);
     }
 
     @PutMapping
-    @Operation(summary = "자기소개글 수정", description = "기존 자기소개글을 수정합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "자기소개글 수정", description = "기존 자기소개글을 수정합니다. userId 1만 권한이 있습니다.")
     public Messenger update(
             @RequestBody AboutModel aboutModel,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // JWT 토큰에서 userId 추출 및 설정
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    // 토큰의 userId로 덮어쓰기 (보안 강화)
-                    aboutModel.setUserId(tokenUserId);
-                }
-            }
-        }
-
-        if (aboutModel.getUserId() == null) {
+        // JWT 토큰에서 userId 추출 및 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Messenger.builder()
-                    .code(400)
-                    .message("사용자 ID가 필요합니다.")
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
                     .build();
         }
 
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+
+        // userId 1만 자기소개글 수정 권한 있음
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("자기소개글 수정 권한이 없습니다. (userId 1만 가능)")
+                    .build();
+        }
+
+        aboutModel.setUserId(tokenUserId);
         return aboutService.update(aboutModel);
     }
 
     @DeleteMapping
-    @Operation(summary = "자기소개글 삭제", description = "자기소개글을 삭제합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "자기소개글 삭제", description = "자기소개글을 삭제합니다. userId 1만 권한이 있습니다.")
     public Messenger delete(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // JWT 토큰에서 userId 추출
+        // JWT 토큰에서 userId 추출 및 검증
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return Messenger.builder()
                     .code(401)
@@ -136,6 +165,14 @@ public class AboutController {
             return Messenger.builder()
                     .code(401)
                     .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+
+        // userId 1만 자기소개글 삭제 권한 있음
+        if (!userId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("자기소개글 삭제 권한이 없습니다. (userId 1만 가능)")
                     .build();
         }
 
