@@ -219,9 +219,10 @@ public class GoogleController {
                 String jwtAccessToken = jwtTokenProvider.generateAccessToken(String.valueOf(appUserId), "google", extractedUserInfo);
                 String jwtRefreshToken = jwtTokenProvider.generateRefreshToken(String.valueOf(appUserId), "google");
                 
-                // 5. Redis에 토큰 저장 (User 테이블의 ID 사용)
+                // 5. Redis에는 Access Token만 저장, Refresh Token은 User 테이블에 저장
                 tokenService.saveAccessToken("google", String.valueOf(appUserId), jwtAccessToken, 3600);
-                tokenService.saveRefreshToken("google", String.valueOf(appUserId), jwtRefreshToken, 2592000);
+                userService.updateRefreshToken(appUserId, jwtRefreshToken);
+                System.out.println("Refresh Token을 User 테이블에 저장 완료: userId=" + appUserId);
                 
                 // 6. Refresh Token을 HttpOnly 쿠키로 설정
                 if (jwtRefreshToken != null) {

@@ -7,6 +7,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import site.aiion.api.services.oauth.token.TokenService;
 import site.aiion.api.services.oauth.util.JwtTokenProvider;
+import site.aiion.api.services.user.UserService;
+import site.aiion.api.services.user.UserModel;
+import site.aiion.api.services.user.common.domain.Messenger;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -21,10 +24,12 @@ public class AuthController {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenService tokenService;
+    private final UserService userService;
 
-    public AuthController(JwtTokenProvider jwtTokenProvider, TokenService tokenService) {
+    public AuthController(JwtTokenProvider jwtTokenProvider, TokenService tokenService, UserService userService) {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenService = tokenService;
+        this.userService = userService;
     }
 
     /**
@@ -94,15 +99,28 @@ public class AuthController {
             
             System.out.println("사용자 정보 추출: userId=" + userId + ", provider=" + provider);
             
-            // 4. Redis에 저장된 Refresh Token과 비교
-            String storedRefreshToken = tokenService.getRefreshToken(provider, userId);
+            // 4. User 테이블에서 Refresh Token 조회 및 검증
+            Messenger userMessenger = userService.findById(UserModel.builder().id(Long.parseLong(userId)).build());
+            if (userMessenger.getCode() != 200 || userMessenger.getData() == null) {
+                System.err.println("사용자를 찾을 수 없습니다.");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "사용자를 찾을 수 없습니다.");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
+            
+            UserModel user = (UserModel) userMessenger.getData();
+            String storedRefreshToken = user.getRefreshToken();
+            
             if (storedRefreshToken == null || !storedRefreshToken.equals(refreshToken)) {
-                System.err.println("Redis에 저장된 Refresh Token과 일치하지 않습니다.");
+                System.err.println("User 테이블에 저장된 Refresh Token과 일치하지 않습니다.");
                 Map<String, Object> errorResponse = new HashMap<>();
                 errorResponse.put("success", false);
                 errorResponse.put("message", "유효하지 않은 Refresh Token입니다.");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
+            
+            System.out.println("User 테이블의 Refresh Token 검증 완료");
             
             // 5. 새로운 Access Token 생성
             Map<String, Object> userInfo = new HashMap<>();
@@ -160,18 +178,23 @@ public class AuthController {
                 }
             }
             
-            // 2. Refresh Token이 있으면 Redis에서 삭제
+            // 2. Refresh Token이 있으면 User 테이블과 Redis에서 삭제
             if (refreshToken != null && !refreshToken.isEmpty()) {
                 try {
                     String userId = jwtTokenProvider.getUserIdFromToken(refreshToken);
                     String provider = jwtTokenProvider.getProviderFromToken(refreshToken);
                     
                     if (userId != null && provider != null) {
+                        // User 테이블의 Refresh Token 삭제
+                        userService.updateRefreshToken(Long.parseLong(userId), null);
+                        System.out.println("User 테이블의 Refresh Token 삭제 완료: userId=" + userId);
+                        
+                        // Redis의 Access Token 삭제
                         tokenService.deleteTokens(provider, userId);
-                        System.out.println("Redis에서 토큰 삭제 완료: userId=" + userId + ", provider=" + provider);
+                        System.out.println("Redis에서 Access Token 삭제 완료: userId=" + userId + ", provider=" + provider);
                     }
                 } catch (Exception e) {
-                    System.err.println("Redis에서 토큰 삭제 중 오류 (무시): " + e.getMessage());
+                    System.err.println("토큰 삭제 중 오류 (무시): " + e.getMessage());
                 }
             }
             

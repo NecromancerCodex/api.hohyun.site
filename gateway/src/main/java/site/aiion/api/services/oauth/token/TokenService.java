@@ -29,11 +29,13 @@ public class TokenService {
     
     /**
      * Refresh Token 저장
+     * @deprecated Refresh Token은 이제 User 테이블에 저장됩니다. UserService.updateRefreshToken()을 사용하세요.
      * @param provider 소셜 로그인 제공자 (kakao, naver, google)
      * @param userId 사용자 ID
      * @param refreshToken Refresh Token
      * @param expireTime 만료 시간 (초)
      */
+    @Deprecated
     public void saveRefreshToken(String provider, String userId, String refreshToken, long expireTime) {
         String key = String.format("token:%s:%s:refresh", provider, userId);
         redisTemplate.opsForValue().set(key, refreshToken, expireTime, TimeUnit.SECONDS);
@@ -54,10 +56,12 @@ public class TokenService {
     
     /**
      * Refresh Token 조회
+     * @deprecated Refresh Token은 이제 User 테이블에서 조회합니다. UserService.findById()를 사용하세요.
      * @param provider 소셜 로그인 제공자
      * @param userId 사용자 ID
      * @return Refresh Token
      */
+    @Deprecated
     public String getRefreshToken(String provider, String userId) {
         String key = String.format("token:%s:%s:refresh", provider, userId);
         Object token = redisTemplate.opsForValue().get(key);
@@ -65,7 +69,7 @@ public class TokenService {
     }
     
     /**
-     * 토큰 삭제
+     * 토큰 삭제 (Access Token만 삭제, Refresh Token은 User 테이블에서 관리)
      * @param provider 소셜 로그인 제공자
      * @param userId 사용자 ID
      */
@@ -75,13 +79,16 @@ public class TokenService {
         
         System.out.println("[TokenService] 토큰 삭제 시작 - provider: " + provider + ", userId: " + userId);
         System.out.println("[TokenService] Access Token Key: " + accessKey);
-        System.out.println("[TokenService] Refresh Token Key: " + refreshKey);
         
         Boolean accessDeleted = redisTemplate.delete(accessKey);
+        
+        // Refresh Token은 이제 User 테이블에서 관리하지만, 혹시 남아있는 키가 있다면 삭제
         Boolean refreshDeleted = redisTemplate.delete(refreshKey);
         
         System.out.println("[TokenService] Access Token 삭제 결과: " + (accessDeleted ? "성공" : "실패 (키가 없거나 이미 삭제됨)"));
-        System.out.println("[TokenService] Refresh Token 삭제 결과: " + (refreshDeleted ? "성공" : "실패 (키가 없거나 이미 삭제됨)"));
+        if (refreshDeleted) {
+            System.out.println("[TokenService] (정리) 이전 Refresh Token 키 삭제됨");
+        }
         System.out.println("[TokenService] 토큰 삭제 완료");
     }
     

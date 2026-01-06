@@ -31,6 +31,7 @@ public class UserServiceImpl implements UserService {
                 .nickname(entity.getNickname())
                 .provider(entity.getProvider())
                 .providerId(entity.getProviderId())
+                .refreshToken(entity.getRefreshToken())
                 .build();
     }
 
@@ -48,6 +49,7 @@ public class UserServiceImpl implements UserService {
                 .nickname(nickname)
                 .provider(model.getProvider())
                 .providerId(model.getProviderId())
+                .refreshToken(model.getRefreshToken())
                 .build();
     }
 
@@ -208,6 +210,7 @@ public class UserServiceImpl implements UserService {
                     .nickname(userModel.getNickname() != null ? userModel.getNickname() : existing.getNickname())
                     .provider(userModel.getProvider() != null ? userModel.getProvider() : existing.getProvider())
                     .providerId(userModel.getProviderId() != null ? userModel.getProviderId() : existing.getProviderId())
+                    .refreshToken(userModel.getRefreshToken() != null ? userModel.getRefreshToken() : existing.getRefreshToken())
                     .build();
             
             User saved = userRepository.save(updated);
@@ -245,6 +248,42 @@ public class UserServiceImpl implements UserService {
             return Messenger.builder()
                     .code(404)
                     .message("삭제할 사용자를 찾을 수 없습니다.")
+                    .build();
+        }
+    }
+
+    @Override
+    @Transactional
+    public Messenger updateRefreshToken(Long userId, String refreshToken) {
+        if (userId == null) {
+            return Messenger.builder()
+                    .code(400)
+                    .message("사용자 ID가 필요합니다.")
+                    .build();
+        }
+        
+        Optional<User> optionalEntity = userRepository.findById(userId);
+        if (optionalEntity.isPresent()) {
+            User existing = optionalEntity.get();
+            User updated = User.builder()
+                    .id(existing.getId())
+                    .name(existing.getName())
+                    .email(existing.getEmail())
+                    .nickname(existing.getNickname())
+                    .provider(existing.getProvider())
+                    .providerId(existing.getProviderId())
+                    .refreshToken(refreshToken)  // Refresh Token만 업데이트
+                    .build();
+            
+            userRepository.save(updated);
+            return Messenger.builder()
+                    .code(200)
+                    .message("Refresh Token 업데이트 성공: " + userId)
+                    .build();
+        } else {
+            return Messenger.builder()
+                    .code(404)
+                    .message("사용자를 찾을 수 없습니다.")
                     .build();
         }
     }

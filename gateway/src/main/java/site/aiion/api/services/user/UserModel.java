@@ -23,4 +23,7 @@ public class UserModel {
     
     // OAuth 제공자에서 받은 사용자 ID
     private String providerId;
+    
+    // Refresh Token (DB에 저장)
+    private String refreshToken;
 }

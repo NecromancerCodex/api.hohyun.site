@@ -33,6 +33,10 @@ public class User {
     @Column(name = "provider_id", nullable = false)
     private String providerId;
 
+    // Refresh Token 저장 (HttpOnly 쿠키와 별도로 DB에도 저장하여 검증)
+    @Column(name = "refresh_token", length = 1000)
+    private String refreshToken;
+
     // Commented out because Diary type is not resolved.
     // @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     // private List<Diary> diaries;

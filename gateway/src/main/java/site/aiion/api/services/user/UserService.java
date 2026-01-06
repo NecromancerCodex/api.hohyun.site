@@ -11,4 +11,5 @@ public interface UserService {
     public Messenger saveAll(List<UserModel> userModelList);
     public Messenger update(UserModel userModel);
     public Messenger delete(UserModel userModel);
+    public Messenger updateRefreshToken(Long userId, String refreshToken);
 }
