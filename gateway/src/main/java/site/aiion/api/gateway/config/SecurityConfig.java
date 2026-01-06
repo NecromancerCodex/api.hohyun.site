@@ -49,27 +49,26 @@ public class SecurityConfig {
             )
             
             // 요청 인가 설정
+            // 주의: JWT 토큰 검증은 컨트롤러 레벨에서 처리하므로
+            // Spring Security는 모든 API 엔드포인트를 permitAll()로 설정
+            // 실제 인증은 각 컨트롤러에서 JwtTokenUtil/JwtTokenProvider로 검증
             .authorizeHttpRequests(auth -> auth
-                // 공개 엔드포인트
+                // 모든 API 엔드포인트 허용 (JWT 검증은 컨트롤러 레벨에서 처리)
+                .requestMatchers("/api/**").permitAll()
+                
+                // Swagger UI 및 문서
                 .requestMatchers(
-                    "/api/google/auth-url",      // 구글 인증 URL 생성
-                    "/api/google/callback",      // 구글 OAuth 콜백
-                    "/api/kakao/auth-url",        // 카카오 인증 URL 생성
-                    "/api/kakao/callback",        // 카카오 OAuth 콜백
-                    "/api/naver/auth-url",        // 네이버 인증 URL 생성
-                    "/api/naver/callback",        // 네이버 OAuth 콜백
-                    "/api/auth/refresh",          // 토큰 갱신
-                    "/api/auth/logout",           // 로그아웃
                     "/docs/**",                   // Swagger UI
-                    "/v3/api-docs/**",            // Swagger API 문서
+                    "/v3/api-docs/**"             // Swagger API 문서
+                ).permitAll()
+                
+                // Actuator 엔드포인트
+                .requestMatchers(
                     "/actuator/health",           // Health check
                     "/actuator/info"              // Info endpoint
                 ).permitAll()
                 
-                // 나머지 API는 인증 필요 (JWT 토큰 검증은 별도 필터에서 처리)
-                .requestMatchers("/api/**").authenticated()
-                
-                // 기타 요청은 허용 (Swagger UI 등)
+                // 기타 요청은 허용
                 .anyRequest().permitAll()
             )
             
