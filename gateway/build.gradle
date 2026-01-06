@@ -21,6 +21,10 @@ dependencies {
 	// Web (Servlet) - 서비스 컨트롤러를 위해 필요
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	
+	// Spring Security (OAuth2 및 일반 보안 기능)
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+	
 	// JPA (서비스들이 사용)
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	

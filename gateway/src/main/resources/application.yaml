@@ -33,6 +33,10 @@ spring:
         enabled: true
   # Spring Cloud 제거 - 단순 Spring Boot 애플리케이션으로 실행
   # 내부 서비스(oauth, user, diary)는 같은 애플리케이션 내에서 직접 컨트롤러로 실행됨
+  # Spring Security OAuth2 Client 자동 설정 비활성화 (기존 수동 OAuth 구현 사용)
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.servlet.OAuth2ClientAutoConfiguration
 
 # JWT 설정
 jwt:

@@ -127,8 +127,10 @@ public class GoogleOAuthService {
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> extractUserInfo(Map<String, Object> userInfo) {
-        // 구글 사용자 ID
-        String googleId = (String) userInfo.get("id");
+        // 구글 사용자 ID (OpenID Connect의 sub 우선 사용, 없으면 id 사용)
+        // sub는 OpenID Connect 표준이며 변하지 않는 고유 식별자입니다.
+        String sub = (String) userInfo.get("sub");
+        String googleId = sub != null ? sub : (String) userInfo.get("id");
         
         // 이름
         String name = (String) userInfo.get("name");
@@ -145,10 +147,17 @@ public class GoogleOAuthService {
         // 가변 Map을 반환하여 이후 수정 가능하도록 함
         Map<String, Object> extractedInfo = new HashMap<>();
         extractedInfo.put("google_id", googleId != null ? googleId : "");
+        extractedInfo.put("sub", sub != null ? sub : googleId); // OpenID Connect 표준 필드
         extractedInfo.put("nickname", name != null ? name : "구글 사용자");
         extractedInfo.put("email", email != null ? email : "");
         extractedInfo.put("email_verified", emailVerified != null ? emailVerified : false);
         extractedInfo.put("profile_image", picture != null ? picture : "");
+        
+        System.out.println("[GoogleOAuthService] 사용자 정보 추출:");
+        System.out.println("  - sub: " + sub);
+        System.out.println("  - id: " + userInfo.get("id"));
+        System.out.println("  - 최종 google_id: " + googleId);
+        System.out.println("  - email: " + email);
         
         return extractedInfo;
     }

@@ -109,6 +109,37 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public Messenger findByProviderIdAndProvider(String providerId, String provider) {
+        if (providerId == null || providerId.trim().isEmpty()) {
+            return Messenger.builder()
+                    .code(400)
+                    .message("Provider ID가 필요합니다.")
+                    .build();
+        }
+        if (provider == null || provider.trim().isEmpty()) {
+            return Messenger.builder()
+                    .code(400)
+                    .message("제공자 정보가 필요합니다.")
+                    .build();
+        }
+        
+        Optional<User> entity = userRepository.findByProviderIdAndProvider(providerId, provider);
+        if (entity.isPresent()) {
+            UserModel model = entityToModel(entity.get());
+            return Messenger.builder()
+                    .code(200)
+                    .message("조회 성공")
+                    .data(model)
+                    .build();
+        } else {
+            return Messenger.builder()
+                    .code(404)
+                    .message("사용자를 찾을 수 없습니다.")
+                    .build();
+        }
+    }
+
+    @Override
     public Messenger findAll() {
         List<User> entities = userRepository.findAll();
         List<UserModel> modelList = entities.stream()

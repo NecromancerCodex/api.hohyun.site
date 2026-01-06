@@ -175,18 +175,36 @@ public class GoogleController {
                 Map<String, Object> extractedUserInfo = googleOAuthService.extractUserInfo(userInfo);
                 
                 // 3. User 테이블에서 사용자 조회 또는 생성
-                // 간단한 로직: 있으면 통과, 없으면 생성
+                // 전략: providerId(sub)는 변하지 않으므로 우선 사용, email은 보조로 사용
                 String email = (String) extractedUserInfo.get("email");
                 String name = (String) extractedUserInfo.get("nickname");
-                String providerId = (String) extractedUserInfo.get("google_id");
+                String providerId = (String) extractedUserInfo.get("google_id"); // sub 또는 id
                 
-                // 1단계: 사용자 조회
-                site.aiion.api.services.user.common.domain.Messenger findResult = userService.findByEmailAndProvider(email, "google");
-                site.aiion.api.services.oauth.user.UserResponse user = extractUserFromMessenger(findResult);
+                site.aiion.api.services.oauth.user.UserResponse user = null;
                 
-                // 2단계: 없으면 생성
+                // 1단계: providerId + provider로 조회 (가장 안정적, sub는 변하지 않음)
+                if (providerId != null && !providerId.trim().isEmpty()) {
+                    System.out.println("[GoogleController] providerId로 사용자 조회 시도: " + providerId);
+                    site.aiion.api.services.user.common.domain.Messenger findResult = userService.findByProviderIdAndProvider(providerId, "google");
+                    user = extractUserFromMessenger(findResult);
+                    if (user != null) {
+                        System.out.println("[GoogleController] providerId로 기존 사용자 조회 성공: ID=" + user.getId() + ", providerId=" + providerId);
+                    }
+                }
+                
+                // 2단계: providerId로 못 찾았으면 email + provider로 조회 (하위 호환성)
+                if (user == null && email != null && !email.trim().isEmpty()) {
+                    System.out.println("[GoogleController] email로 사용자 조회 시도: " + email);
+                    site.aiion.api.services.user.common.domain.Messenger findResult = userService.findByEmailAndProvider(email, "google");
+                    user = extractUserFromMessenger(findResult);
+                    if (user != null) {
+                        System.out.println("[GoogleController] email로 기존 사용자 조회 성공: ID=" + user.getId() + ", email=" + email);
+                    }
+                }
+                
+                // 3단계: 없으면 새로 생성
                 if (user == null) {
-                    System.out.println("[GoogleController] 사용자 없음, 새로 생성 시도: " + email);
+                    System.out.println("[GoogleController] 사용자 없음, 새로 생성 시도: providerId=" + providerId + ", email=" + email);
                     site.aiion.api.services.user.UserModel newUser = site.aiion.api.services.user.UserModel.builder()
                             .name(name)
                             .email(email)
@@ -197,20 +215,24 @@ public class GoogleController {
                     site.aiion.api.services.user.common.domain.Messenger saveResult = userService.save(newUser);
                     user = extractUserFromMessenger(saveResult);
                     
-                    // 3단계: 생성 실패 시 (중복 키 등으로 이미 생성됨) 다시 조회
+                    // 4단계: 생성 실패 시 (중복 키 등으로 이미 생성됨) 다시 조회
                     if (user == null) {
-                        System.out.println("[GoogleController] 사용자 생성 실패 (중복 가능), 재조회: " + email);
-                        findResult = userService.findByEmailAndProvider(email, "google");
-                        user = extractUserFromMessenger(findResult);
+                        System.out.println("[GoogleController] 사용자 생성 실패 (중복 가능), 재조회: providerId=" + providerId);
+                        if (providerId != null && !providerId.trim().isEmpty()) {
+                            site.aiion.api.services.user.common.domain.Messenger findResult = userService.findByProviderIdAndProvider(providerId, "google");
+                            user = extractUserFromMessenger(findResult);
+                        }
+                        if (user == null && email != null && !email.trim().isEmpty()) {
+                            site.aiion.api.services.user.common.domain.Messenger findResult = userService.findByEmailAndProvider(email, "google");
+                            user = extractUserFromMessenger(findResult);
+                        }
                     }
                     
                     // 최종 확인: 그래도 없으면 에러
                     if (user == null || user.getId() == null) {
-                        throw new RuntimeException("사용자 생성 및 조회 실패 - user-service와 통신에 문제가 있습니다. email: " + email);
+                        throw new RuntimeException("사용자 생성 및 조회 실패 - user-service와 통신에 문제가 있습니다. providerId: " + providerId + ", email: " + email);
                     }
-                    System.out.println("[GoogleController] 사용자 처리 완료: ID=" + user.getId() + ", email=" + email);
-                } else {
-                    System.out.println("[GoogleController] 기존 사용자 조회 성공: ID=" + user.getId() + ", email=" + email);
+                    System.out.println("[GoogleController] 사용자 생성 완료: ID=" + user.getId() + ", providerId=" + providerId + ", email=" + email);
                 }
                 
                 // 4. JWT 토큰 생성 (User 테이블의 ID 사용)
