@@ -101,22 +101,9 @@ public class DiaryServiceImpl implements DiaryService {
                     .message("ID가 필요합니다.")
                     .build();
         }
-        if (diaryModel.getUserId() == null) {
-            return Messenger.builder()
-                    .code(400)
-                    .message("사용자 ID가 필요합니다.")
-                    .build();
-        }
         Optional<Diary> entity = diaryRepository.findById(diaryModel.getId());
         if (entity.isPresent()) {
             Diary diary = entity.get();
-            // userId 검증: 다른 사용자의 일기는 조회 불가
-            if (!diary.getUserId().equals(diaryModel.getUserId())) {
-                return Messenger.builder()
-                        .code(403)
-                        .message("다른 사용자의 일기는 조회할 수 없습니다.")
-                        .build();
-            }
             // 일괄 조회 방식 사용 (N+1 문제 해결)
             List<Long> diaryIds = List.of(diary.getId());
             Map<Long, site.aiion.api.services.diary.emotion.DiaryEmotionModel> emotionMap = 

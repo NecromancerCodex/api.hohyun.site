@@ -27,81 +27,40 @@ public class DiaryController {
     private final JwtTokenUtil jwtTokenUtil;
 
     @PostMapping("/findById")
-    @Operation(summary = "일기 ID로 조회", description = "일기 ID를 받아 해당 일기 정보를 조회합니다.")
+    @Operation(summary = "일기 ID로 조회 (공개)", description = "일기 ID를 받아 해당 일기 정보를 조회합니다. 인증 없이 모든 사용자가 조회 가능합니다.")
     public Messenger findById(@RequestBody DiaryModel diaryModel) {
         return diaryService.findById(diaryModel);
     }
 
-    // 보안: 전체 일기 조회 제거 - 사용자별 조회만 허용
-    // @GetMapping
-    // @Operation(summary = "전체 일기 조회", description = "모든 일기 정보를 조회합니다.")
-    // public Messenger findAll() {
-    //     return diaryService.findAll();
-    // }
+    @GetMapping
+    @Operation(summary = "전체 일기 조회 (공개)", description = "모든 일기 정보를 조회합니다. 인증 없이 모든 사용자가 조회 가능합니다.")
+    public Messenger findAll() {
+        return diaryService.findAll();
+    }
 
     @GetMapping("/user/{userId}")
-    @Operation(summary = "사용자별 일기 조회 (Deprecated)", description = "특정 사용자의 일기 정보를 조회합니다. JWT 토큰 기반 조회를 사용하세요.")
+    @Operation(summary = "사용자별 일기 조회 (공개)", description = "특정 사용자의 일기 정보를 조회합니다. 인증 없이 모든 사용자가 조회 가능합니다.")
     public Messenger findByUserId(
-            @org.springframework.web.bind.annotation.PathVariable Long userId,
-            @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // JWT 토큰이 있으면 토큰에서 userId 추출 (보안 강화)
-        if (authHeader != null) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    // 토큰의 userId와 경로의 userId가 일치하는지 확인
-                    if (!tokenUserId.equals(userId)) {
-                        return Messenger.builder()
-                                .code(403)
-                                .message("권한이 없습니다. 토큰의 사용자 ID와 요청한 사용자 ID가 일치하지 않습니다.")
-                                .build();
-                    }
-                }
-            }
-        }
+            @org.springframework.web.bind.annotation.PathVariable Long userId) {
         return diaryService.findByUserId(userId);
     }
     
     @GetMapping("/user")
-    @Operation(summary = "JWT 토큰 기반 일기 조회", description = "JWT 토큰에서 사용자 ID를 추출하여 해당 사용자의 일기 정보를 조회합니다.")
+    @Operation(summary = "JWT 토큰 기반 일기 조회 (공개)", description = "JWT 토큰에서 사용자 ID를 추출하여 해당 사용자의 일기 정보를 조회합니다. 토큰이 없어도 전체 일기를 조회할 수 있습니다.")
     public Messenger findByUserIdFromToken(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // Authorization 헤더 검증
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return Messenger.builder()
-                    .code(401)
-                    .message("인증 토큰이 필요합니다.")
-                    .build();
+        // 토큰이 있으면 해당 사용자의 일기만 조회
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+            if (token != null && jwtTokenUtil.validateToken(token)) {
+                Long userId = jwtTokenUtil.getUserIdFromToken(token);
+                if (userId != null) {
+                    return diaryService.findByUserId(userId);
+                }
+            }
         }
-        
-        // 토큰 추출 및 검증
-        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-        if (token == null || !jwtTokenUtil.validateToken(token)) {
-            return Messenger.builder()
-                    .code(401)
-                    .message("유효하지 않은 토큰입니다.")
-                    .build();
-        }
-        
-        // 토큰에서 userId 추출
-        Long userId = jwtTokenUtil.getUserIdFromToken(token);
-        if (userId == null) {
-            System.err.println("[DiaryController] 토큰에서 userId 추출 실패");
-            return Messenger.builder()
-                    .code(401)
-                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
-                    .build();
-        }
-        
-        System.out.println("[DiaryController] JWT 토큰에서 추출한 userId: " + userId);
-        System.out.println("[DiaryController] 해당 userId의 일기 조회 시작");
-        Messenger result = diaryService.findByUserId(userId);
-        System.out.println("[DiaryController] 일기 조회 결과: Code=" + result.getCode() + ", message=" + result.getMessage());
-        if (result.getData() != null) {
-            System.out.println("[DiaryController] 조회된 일기 개수: " + (result.getData() instanceof List ? ((List<?>) result.getData()).size() : 1));
-        }
-        return result;
+        // 토큰이 없으면 전체 일기 조회
+        return diaryService.findAll();
     }
 
     @GetMapping("/check/{userId}")
@@ -111,78 +70,182 @@ public class DiaryController {
     }
 
     @PostMapping
-    @Operation(summary = "일기 저장", description = "새로운 일기 정보를 저장합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "일기 저장", description = "새로운 일기 정보를 저장합니다. userId 1만 권한이 있습니다.")
     public Messenger save(
             @RequestBody DiaryModel diaryModel,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        System.out.println("[DiaryController] 저장 요청 수신:");
+        // JWT 토큰 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
+                    .build();
+        }
+        
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+        
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+        
+        // userId 1만 권한 허용
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("일기 작성 권한이 없습니다. userId 1만 작성할 수 있습니다.")
+                    .build();
+        }
+        
+        // 토큰의 userId로 설정
+        diaryModel.setUserId(tokenUserId);
+        
+        System.out.println("[DiaryController] 저장 요청 수신 (userId=" + tokenUserId + "):");
         System.out.println("  - id: " + diaryModel.getId());
         System.out.println("  - diaryDate: " + diaryModel.getDiaryDate());
         System.out.println("  - title: " + diaryModel.getTitle());
         System.out.println("  - content: " + (diaryModel.getContent() != null ? diaryModel.getContent().length() + "자" : "null"));
-        System.out.println("  - userId (요청): " + diaryModel.getUserId());
-        
-        // JWT 토큰에서 userId 추출 및 설정
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    // 토큰의 userId로 덮어쓰기 (보안 강화)
-                    diaryModel.setUserId(tokenUserId);
-                    System.out.println("  - userId (토큰에서 추출): " + tokenUserId);
-                }
-            }
-        }
         
         return diaryService.save(diaryModel);
     }
 
     @PostMapping("/saveAll")
-    @Operation(summary = "일기 일괄 저장", description = "여러 일기 정보를 한 번에 저장합니다.")
-    public Messenger saveAll(@RequestBody List<DiaryModel> diaryModelList) {
+    @Operation(summary = "일기 일괄 저장", description = "여러 일기 정보를 한 번에 저장합니다. userId 1만 권한이 있습니다.")
+    public Messenger saveAll(
+            @RequestBody List<DiaryModel> diaryModelList,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        // JWT 토큰 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
+                    .build();
+        }
+        
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+        
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+        
+        // userId 1만 권한 허용
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("일기 일괄 저장 권한이 없습니다. userId 1만 저장할 수 있습니다.")
+                    .build();
+        }
+        
+        // 모든 일기에 userId 설정
+        diaryModelList.forEach(model -> model.setUserId(tokenUserId));
+        
         return diaryService.saveAll(diaryModelList);
     }
 
     @PutMapping
-    @Operation(summary = "일기 수정", description = "기존 일기 정보를 수정합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "일기 수정", description = "기존 일기 정보를 수정합니다. userId 1만 권한이 있습니다.")
     public Messenger update(
             @RequestBody DiaryModel diaryModel,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // JWT 토큰에서 userId 추출 및 설정
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    diaryModel.setUserId(tokenUserId);
-                }
-            }
+        // JWT 토큰 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
+                    .build();
         }
+        
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+        
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+        
+        // userId 1만 권한 허용
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("일기 수정 권한이 없습니다. userId 1만 수정할 수 있습니다.")
+                    .build();
+        }
+        
+        // 토큰의 userId로 설정
+        diaryModel.setUserId(tokenUserId);
+        
         return diaryService.update(diaryModel);
     }
 
     @DeleteMapping
-    @Operation(summary = "일기 삭제", description = "일기 정보를 삭제합니다. JWT 토큰에서 userId를 자동으로 추출합니다.")
+    @Operation(summary = "일기 삭제", description = "일기 정보를 삭제합니다. userId 1만 권한이 있습니다.")
     public Messenger delete(
             @RequestBody DiaryModel diaryModel,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        System.out.println("[DiaryController] 삭제 요청 수신:");
-        System.out.println("  - id: " + diaryModel.getId());
-        System.out.println("  - userId (요청): " + diaryModel.getUserId());
-        
-        // JWT 토큰에서 userId 추출 및 설정
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-            if (token != null && jwtTokenUtil.validateToken(token)) {
-                Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-                if (tokenUserId != null) {
-                    // 토큰의 userId로 덮어쓰기 (보안 강화)
-                    diaryModel.setUserId(tokenUserId);
-                    System.out.println("  - userId (토큰에서 추출): " + tokenUserId);
-                }
-            }
+        // JWT 토큰 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
+                    .build();
         }
+        
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+        
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+        
+        // userId 1만 권한 허용
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("일기 삭제 권한이 없습니다. userId 1만 삭제할 수 있습니다.")
+                    .build();
+        }
+        
+        // 토큰의 userId로 설정
+        diaryModel.setUserId(tokenUserId);
+        
+        System.out.println("[DiaryController] 삭제 요청 수신 (userId=" + tokenUserId + "):");
+        System.out.println("  - id: " + diaryModel.getId());
         
         Messenger result = diaryService.delete(diaryModel);
         System.out.println("[DiaryController] 삭제 결과: Code=" + result.getCode() + ", message=" + result.getMessage());
