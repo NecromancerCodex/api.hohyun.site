@@ -186,16 +186,25 @@ public class AuthController {
                     
                     if (userId != null && provider != null) {
                         // User 테이블의 Refresh Token 삭제
-                        userService.updateRefreshToken(Long.parseLong(userId), null);
-                        System.out.println("User 테이블의 Refresh Token 삭제 완료: userId=" + userId);
+                        Messenger updateResult = userService.updateRefreshToken(Long.parseLong(userId), null);
+                        if (updateResult.getCode() == 200) {
+                            System.out.println("User 테이블의 Refresh Token 삭제 완료: userId=" + userId);
+                        } else {
+                            System.err.println("User 테이블의 Refresh Token 삭제 실패: " + updateResult.getMessage());
+                        }
                         
                         // Redis의 Access Token 삭제
                         tokenService.deleteTokens(provider, userId);
                         System.out.println("Redis에서 Access Token 삭제 완료: userId=" + userId + ", provider=" + provider);
+                    } else {
+                        System.err.println("Refresh Token에서 userId 또는 provider를 추출할 수 없습니다.");
                     }
                 } catch (Exception e) {
-                    System.err.println("토큰 삭제 중 오류 (무시): " + e.getMessage());
+                    System.err.println("토큰 삭제 중 오류 발생: " + e.getMessage());
+                    e.printStackTrace();
                 }
+            } else {
+                System.out.println("쿠키에 Refresh Token이 없습니다. (이미 로그아웃되었거나 쿠키가 만료됨)");
             }
             
             // 3. HttpOnly 쿠키 삭제
