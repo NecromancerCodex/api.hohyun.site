@@ -16,11 +16,13 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 	"site.aiion.api.services.diary",
 	"site.aiion.api.services.diary.emotion",
 	"site.aiion.api.services.diary.mbti",
-	"site.aiion.api.services.user"
+	"site.aiion.api.services.user",
+	"site.aiion.api.services.about"  // 자기소개 Entity
 })
 @EnableJpaRepositories(basePackages = {
 	"site.aiion.api.services.user",
-	"site.aiion.api.services.diary"  // 하위 패키지(diary.emotion, diary.mbti) 자동 포함
+	"site.aiion.api.services.diary",  // 하위 패키지(diary.emotion, diary.mbti) 자동 포함
+	"site.aiion.api.services.about"   // 자기소개 Repository
 })
 public class GatewayApplication {
 
