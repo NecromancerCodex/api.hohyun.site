@@ -25,36 +25,11 @@ public class AboutController {
     private final JwtTokenUtil jwtTokenUtil;
 
     @GetMapping("/user")
-    @Operation(summary = "자기소개글 조회", description = "userId 1의 자기소개글을 조회합니다. 인증 필요.")
+    @Operation(summary = "자기소개글 조회 (Public)", description = "userId 1의 자기소개글을 조회합니다. 인증 불필요 (게스트 포함 모두 조회 가능).")
     public Messenger findByUserIdFromToken(
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        // Authorization 헤더 검증
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return Messenger.builder()
-                    .code(401)
-                    .message("인증 토큰이 필요합니다.")
-                    .build();
-        }
-
-        // 토큰 추출 및 검증
-        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
-        if (token == null || !jwtTokenUtil.validateToken(token)) {
-            return Messenger.builder()
-                    .code(401)
-                    .message("유효하지 않은 토큰입니다.")
-                    .build();
-        }
-
-        // 토큰에서 userId 추출 (인증 확인용)
-        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
-        if (tokenUserId == null) {
-            return Messenger.builder()
-                    .code(401)
-                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
-                    .build();
-        }
-
-        // 항상 userId 1의 자기소개글을 조회 (모든 로그인 사용자가 볼 수 있음)
+        // 인증 여부와 관계없이 userId 1의 자기소개글을 조회 (Public 엔드포인트)
+        // 게스트, 로그인 사용자 모두 조회 가능
         return aboutService.findByUserId(1L);
     }
 
