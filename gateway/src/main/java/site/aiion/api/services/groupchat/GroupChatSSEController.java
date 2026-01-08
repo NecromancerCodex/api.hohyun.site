@@ -36,12 +36,15 @@ public class GroupChatSSEController {
     public SseEmitter streamMessages(
             @RequestParam(value = "lastId", defaultValue = "0") Long lastId) {
         
-        log.info("SSE 연결 시작: lastId={}", lastId);
+        log.info("========== SSE 연결 요청 ==========");
+        log.info("lastId: {}", lastId);
         
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // 무제한 타임아웃
         String emitterId = String.valueOf(System.currentTimeMillis());
         emitters.put(emitterId, emitter);
         lastMessageIds.put(emitterId, new AtomicLong(lastId));
+        
+        log.info("SSE Emitter 생성: emitterId={}, 현재 연결 수={}", emitterId, emitters.size());
 
         // 연결 종료 시 정리
         emitter.onCompletion(() -> {
@@ -62,8 +65,23 @@ public class GroupChatSSEController {
             lastMessageIds.remove(emitterId);
         });
 
-        // 초기 메시지 전송
-        sendInitialMessages(emitter, lastId);
+        try {
+            // 연결 확립을 위한 초기 이벤트 전송 (필수!)
+            log.info("초기 연결 이벤트 전송 중...");
+            emitter.send(SseEmitter.event()
+                    .name("connected")
+                    .data("SSE connection established"));
+            log.info("✓ 초기 연결 이벤트 전송 성공");
+            
+            // 초기 메시지 전송
+            sendInitialMessages(emitter, lastId);
+        } catch (IOException e) {
+            log.error("초기 이벤트 전송 실패: emitterId={}", emitterId, e);
+            emitters.remove(emitterId);
+            lastMessageIds.remove(emitterId);
+            emitter.completeWithError(e);
+            return emitter;
+        }
 
         // 주기적으로 새 메시지 확인 (1초마다)
         executor.scheduleAtFixedRate(() -> {
@@ -121,11 +139,19 @@ public class GroupChatSSEController {
     private void sendInitialMessages(SseEmitter emitter, Long lastId) {
         try {
             List<GroupChatModel> recentMessages = getMessagesAfterId(lastId);
+            log.info("초기 메시지 개수: {}", recentMessages.size());
+            
+            if (recentMessages.isEmpty()) {
+                log.info("초기 메시지 없음 (정상)");
+                return;
+            }
+            
             for (GroupChatModel msg : recentMessages) {
                 emitter.send(SseEmitter.event()
                         .id(String.valueOf(msg.getId()))
                         .name("message")
                         .data(msg));
+                log.info("초기 메시지 전송: id={}", msg.getId());
             }
         } catch (Exception e) {
             log.error("초기 메시지 전송 오류", e);
