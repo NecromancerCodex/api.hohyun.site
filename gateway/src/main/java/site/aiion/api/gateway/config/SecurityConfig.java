@@ -8,6 +8,12 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Spring Security 설정
@@ -86,10 +92,54 @@ public class SecurityConfig {
             // 폼 로그인 비활성화 (OAuth만 사용)
             .formLogin(AbstractHttpConfigurer::disable)
             
-            // CORS 비활성화 (Nginx에서 처리)
-            .cors(AbstractHttpConfigurer::disable);
+            // CORS 활성화 (백엔드에서만 처리, Nginx는 프록시만)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()));
         
         return http.build();
+    }
+    
+    /**
+     * CORS 설정 - 명확한 단일 Origin만 허용
+     * Nginx는 리버스 프록시 역할만 하고, CORS는 백엔드에서만 처리
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        
+        // 명확한 단일 Origin만 허용 (패턴 사용 안 함)
+        config.setAllowedOrigins(List.of("https://hohyun.site"));
+        
+        // 개발 환경용 localhost도 허용
+        // 배포 시에는 제거 가능
+        // config.addAllowedOrigin("http://localhost:3000");
+        
+        // 허용할 HTTP 메서드
+        config.setAllowedMethods(Arrays.asList(
+            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
+        
+        // 허용할 헤더 (모든 헤더 허용)
+        config.setAllowedHeaders(List.of("*"));
+        
+        // 인증 정보 포함 허용 (쿠키, Authorization 헤더 등)
+        config.setAllowCredentials(true);
+        
+        // preflight 요청 캐시 시간 (1시간)
+        config.setMaxAge(3600L);
+        
+        // 노출할 헤더
+        config.setExposedHeaders(Arrays.asList(
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Accept",
+            "Origin"
+        ));
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        
+        return source;
     }
 }
 

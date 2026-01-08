@@ -41,7 +41,13 @@ public class GroupChatSSEController {
             @RequestParam(value = "lastId", defaultValue = "0") Long lastId,
             HttpServletResponse response) {
         
-        // SSE 필수 헤더 설정 (CORS는 Nginx에서 처리)
+        // CORS 헤더 명시적 설정 (백엔드에서만 처리)
+        response.setHeader("Access-Control-Allow-Origin", "https://hohyun.site");
+        response.setHeader("Access-Control-Allow-Credentials", "true");
+        response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+        response.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type, Cache-Control");
+        
+        // SSE 필수 헤더 설정
         response.setHeader("Cache-Control", "no-cache, no-transform");
         response.setHeader("Connection", "keep-alive");
         response.setHeader("X-Accel-Buffering", "no");  // Nginx 버퍼링 비활성화
