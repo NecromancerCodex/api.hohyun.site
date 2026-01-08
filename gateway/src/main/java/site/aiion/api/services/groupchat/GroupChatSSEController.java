@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/groupchat")
+@org.springframework.context.annotation.Scope("singleton")
 @Tag(name = "GroupChat SSE", description = "단체 채팅방 실시간 스트리밍")
 public class GroupChatSSEController {
 
@@ -167,6 +168,47 @@ public class GroupChatSSEController {
                 .message(entity.getMessage())
                 .createdAt(entity.getCreatedAt())
                 .build();
+    }
+    
+    /**
+     * 모든 연결된 클라이언트에게 새 메시지 브로드캐스트
+     */
+    public void broadcastMessage(GroupChatModel message) {
+        if (message == null || message.getId() == null) {
+            return;
+        }
+        
+        log.info("브로드캐스트 시작: messageId={}, 연결된 클라이언트 수={}", message.getId(), emitters.size());
+        
+        List<String> toRemove = new java.util.ArrayList<>();
+        
+        for (java.util.Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
+            String emitterId = entry.getKey();
+            SseEmitter emitter = entry.getValue();
+            AtomicLong currentLastId = lastMessageIds.get(emitterId);
+            
+            try {
+                // 현재 클라이언트의 lastId보다 큰 메시지만 전송
+                if (currentLastId != null && message.getId() > currentLastId.get()) {
+                    currentLastId.set(message.getId());
+                    emitter.send(SseEmitter.event()
+                            .id(String.valueOf(message.getId()))
+                            .name("message")
+                            .data(message));
+                    log.debug("SSE 메시지 전송 성공: emitterId={}, messageId={}", emitterId, message.getId());
+                }
+            } catch (IOException e) {
+                log.error("SSE 브로드캐스트 오류: emitterId={}", emitterId, e);
+                toRemove.add(emitterId);
+            }
+        }
+        
+        // 오류 발생한 연결 제거
+        for (String emitterId : toRemove) {
+            emitters.remove(emitterId);
+            lastMessageIds.remove(emitterId);
+            log.info("SSE 연결 제거: emitterId={}", emitterId);
+        }
     }
 }
 

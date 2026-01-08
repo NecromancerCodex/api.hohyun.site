@@ -2,6 +2,7 @@ package site.aiion.api.services.groupchat;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,17 @@ import java.util.stream.Collectors;
 public class GroupChatServiceImpl implements GroupChatService {
 
     private final GroupChatRepository groupChatRepository;
+    private final ApplicationContext applicationContext;
+    
+    // SSE 컨트롤러 가져오기 (순환 참조 방지)
+    private GroupChatSSEController getSseController() {
+        try {
+            return applicationContext.getBean(GroupChatSSEController.class);
+        } catch (Exception e) {
+            log.debug("SSE 컨트롤러를 가져올 수 없음 (정상 - 초기화 중일 수 있음)");
+            return null;
+        }
+    }
 
     private GroupChatModel entityToModel(GroupChat entity) {
         if (entity == null) {
@@ -70,6 +82,21 @@ public class GroupChatServiceImpl implements GroupChatService {
             GroupChatModel savedModel = entityToModel(savedEntity);
 
             log.info("그룹 채팅 메시지 저장 성공: userId={}, id={}", groupChatModel.getUserId(), savedEntity.getId());
+            
+            // SSE로 모든 연결된 클라이언트에게 즉시 브로드캐스트
+            try {
+                GroupChatSSEController sseController = getSseController();
+                if (sseController != null) {
+                    sseController.broadcastMessage(savedModel);
+                    log.info("SSE 브로드캐스트 완료: messageId={}", savedEntity.getId());
+                } else {
+                    log.debug("SSE 컨트롤러를 가져올 수 없음 (정상 - 메시지는 저장됨)");
+                }
+            } catch (Exception e) {
+                log.warn("SSE 브로드캐스트 실패 (메시지는 저장됨): messageId={}", savedEntity.getId(), e);
+                // 브로드캐스트 실패해도 메시지 저장은 성공으로 처리
+            }
+            
             return Messenger.builder()
                     .code(200)
                     .message("메시지 전송 성공")
