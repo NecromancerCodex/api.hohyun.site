@@ -175,12 +175,23 @@ public class GroupChatSSEController {
      */
     public void broadcastMessage(GroupChatModel message) {
         if (message == null || message.getId() == null) {
+            log.warn("브로드캐스트 실패: 메시지가 null이거나 ID가 없음");
             return;
         }
         
-        log.info("브로드캐스트 시작: messageId={}, 연결된 클라이언트 수={}", message.getId(), emitters.size());
+        log.info("====== 브로드캐스트 시작 ======");
+        log.info("메시지 ID: {}, 내용: {}, 사용자: {}", message.getId(), message.getMessage(), message.getUsername());
+        log.info("연결된 클라이언트 수: {}", emitters.size());
+        log.info("===========================");
+        
+        if (emitters.isEmpty()) {
+            log.warn("연결된 SSE 클라이언트가 없습니다!");
+            return;
+        }
         
         List<String> toRemove = new java.util.ArrayList<>();
+        int successCount = 0;
+        int skipCount = 0;
         
         for (java.util.Map.Entry<String, SseEmitter> entry : emitters.entrySet()) {
             String emitterId = entry.getKey();
@@ -188,6 +199,11 @@ public class GroupChatSSEController {
             AtomicLong currentLastId = lastMessageIds.get(emitterId);
             
             try {
+                log.info("클라이언트 {}: lastId={}, 새 메시지 ID={}", 
+                    emitterId, 
+                    currentLastId != null ? currentLastId.get() : "null", 
+                    message.getId());
+                
                 // 현재 클라이언트의 lastId보다 큰 메시지만 전송
                 if (currentLastId != null && message.getId() > currentLastId.get()) {
                     currentLastId.set(message.getId());
@@ -195,13 +211,24 @@ public class GroupChatSSEController {
                             .id(String.valueOf(message.getId()))
                             .name("message")
                             .data(message));
-                    log.debug("SSE 메시지 전송 성공: emitterId={}, messageId={}", emitterId, message.getId());
+                    successCount++;
+                    log.info("✓ SSE 메시지 전송 성공: emitterId={}, messageId={}", emitterId, message.getId());
+                } else {
+                    skipCount++;
+                    log.info("⊘ SSE 메시지 스킵 (이미 전송됨): emitterId={}, currentLastId={}, messageId={}", 
+                        emitterId, 
+                        currentLastId != null ? currentLastId.get() : "null", 
+                        message.getId());
                 }
             } catch (IOException e) {
-                log.error("SSE 브로드캐스트 오류: emitterId={}", emitterId, e);
+                log.error("✗ SSE 브로드캐스트 오류: emitterId={}", emitterId, e);
                 toRemove.add(emitterId);
             }
         }
+        
+        log.info("====== 브로드캐스트 완료 ======");
+        log.info("성공: {}, 스킵: {}, 실패: {}", successCount, skipCount, toRemove.size());
+        log.info("===========================");
         
         // 오류 발생한 연결 제거
         for (String emitterId : toRemove) {
