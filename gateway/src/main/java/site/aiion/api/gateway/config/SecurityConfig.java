@@ -8,11 +8,6 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
 
 /**
  * Spring Security 설정
@@ -91,58 +86,10 @@ public class SecurityConfig {
             // 폼 로그인 비활성화 (OAuth만 사용)
             .formLogin(AbstractHttpConfigurer::disable)
             
-            // CORS 설정 (기존 CorsConfig와 통합)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()));
+            // CORS 비활성화 (Nginx에서 처리)
+            .cors(AbstractHttpConfigurer::disable);
         
         return http.build();
-    }
-    
-    /**
-     * CORS 설정
-     * 기존 CorsConfig와 동일한 설정을 Spring Security에 통합
-     */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration config = new CorsConfiguration();
-        
-        // 허용할 Origin 설정
-        config.setAllowedOriginPatterns(Arrays.asList(
-            "https://hohyun.site",
-            "https://www.hohyun.site",
-            "https://*.hohyun.site",
-            "http://localhost:3000",
-            "http://localhost:3001"
-        ));
-        
-        // 허용할 HTTP 메서드
-        config.setAllowedMethods(Arrays.asList(
-            "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
-        ));
-        
-        // 허용할 헤더
-        config.setAllowedHeaders(Arrays.asList("*"));
-        
-        // 인증 정보 포함 허용 (쿠키, Authorization 헤더 등)
-        config.setAllowCredentials(true);
-        
-        // preflight 요청 캐시 시간 (초)
-        config.setMaxAge(3600L);
-        
-        // 노출할 헤더
-        config.setExposedHeaders(Arrays.asList(
-            "Authorization",
-            "Content-Type",
-            "X-Requested-With",
-            "Accept",
-            "Origin",
-            "Access-Control-Request-Method",
-            "Access-Control-Request-Headers"
-        ));
-        
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        
-        return source;
     }
 }
 
