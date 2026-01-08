@@ -21,5 +21,10 @@ public interface GroupChatService {
      * 최근 메시지 N개 조회 (실시간 채팅용)
      */
     Messenger findRecentMessages(int limit);
+    
+    /**
+     * 모든 메시지 삭제 (관리자만 가능)
+     */
+    Messenger deleteAll();
 }
 

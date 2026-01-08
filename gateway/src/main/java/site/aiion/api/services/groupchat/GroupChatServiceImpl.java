@@ -129,5 +129,25 @@ public class GroupChatServiceImpl implements GroupChatService {
                     .build();
         }
     }
+
+    @Override
+    @Transactional
+    public Messenger deleteAll() {
+        try {
+            long count = groupChatRepository.count();
+            groupChatRepository.deleteAll();
+            log.info("그룹 채팅 메시지 전체 삭제 성공: {} 개", count);
+            return Messenger.builder()
+                    .code(200)
+                    .message("모든 메시지가 삭제되었습니다. (" + count + "개)")
+                    .build();
+        } catch (Exception e) {
+            log.error("그룹 채팅 메시지 전체 삭제 중 오류 발생", e);
+            return Messenger.builder()
+                    .code(500)
+                    .message("메시지 삭제 중 오류가 발생했습니다: " + e.getMessage())
+                    .build();
+        }
+    }
 }
 

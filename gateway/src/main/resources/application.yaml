@@ -27,6 +27,8 @@ spring:
       hibernate:
         # PostgreSQLDialect는 자동 감지되므로 명시 불필요
         format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
   data:
     redis:
       ssl:

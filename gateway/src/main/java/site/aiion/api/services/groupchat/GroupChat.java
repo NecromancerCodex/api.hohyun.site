@@ -32,7 +32,8 @@ public class GroupChat {
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
+        // 한국 시간(KST) 기준으로 저장
+        createdAt = LocalDateTime.now(java.time.ZoneId.of("Asia/Seoul"));
     }
 }
 

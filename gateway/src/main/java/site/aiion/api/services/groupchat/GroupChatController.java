@@ -91,5 +91,45 @@ public class GroupChatController {
         
         return groupChatService.findRecentMessages(limit);
     }
+
+    @DeleteMapping("/all")
+    @Operation(summary = "모든 메시지 삭제", description = "단체 채팅방의 모든 메시지를 삭제합니다. userId 1만 권한이 있습니다.")
+    public Messenger deleteAllMessages(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        // JWT 토큰에서 userId 추출 및 검증
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("인증 토큰이 필요합니다.")
+                    .build();
+        }
+
+        String token = jwtTokenUtil.extractTokenFromHeader(authHeader);
+        if (token == null || !jwtTokenUtil.validateToken(token)) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("유효하지 않은 토큰입니다.")
+                    .build();
+        }
+
+        Long tokenUserId = jwtTokenUtil.getUserIdFromToken(token);
+        if (tokenUserId == null) {
+            return Messenger.builder()
+                    .code(401)
+                    .message("토큰에서 사용자 ID를 추출할 수 없습니다.")
+                    .build();
+        }
+
+        // userId 1만 권한 허용
+        if (!tokenUserId.equals(1L)) {
+            return Messenger.builder()
+                    .code(403)
+                    .message("메시지 삭제 권한이 없습니다. (userId 1만 가능)")
+                    .build();
+        }
+
+        return groupChatService.deleteAll();
+    }
 }
 
