@@ -3,11 +3,15 @@ package site.aiion.api.services.groupchat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,10 +35,17 @@ public class GroupChatSSEController {
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicLong> lastMessageIds = new ConcurrentHashMap<>();
 
+    @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.OPTIONS})
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "실시간 메시지 스트림 (SSE)", description = "단체 채팅방의 새로운 메시지를 실시간으로 받습니다. 인증 불필요 (Public).")
     public SseEmitter streamMessages(
-            @RequestParam(value = "lastId", defaultValue = "0") Long lastId) {
+            @RequestParam(value = "lastId", defaultValue = "0") Long lastId,
+            HttpServletResponse response) {
+        
+        // SSE 필수 헤더 설정
+        response.setHeader("Cache-Control", "no-cache, no-transform");
+        response.setHeader("Connection", "keep-alive");
+        response.setHeader("X-Accel-Buffering", "no");  // Nginx 버퍼링 비활성화
         
         log.info("========== SSE 연결 요청 ==========");
         log.info("lastId: {}", lastId);
