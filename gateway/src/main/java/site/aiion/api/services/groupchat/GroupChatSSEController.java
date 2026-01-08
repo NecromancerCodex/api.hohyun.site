@@ -35,14 +35,13 @@ public class GroupChatSSEController {
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, AtomicLong> lastMessageIds = new ConcurrentHashMap<>();
 
-    @CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.OPTIONS})
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "실시간 메시지 스트림 (SSE)", description = "단체 채팅방의 새로운 메시지를 실시간으로 받습니다. 인증 불필요 (Public).")
     public SseEmitter streamMessages(
             @RequestParam(value = "lastId", defaultValue = "0") Long lastId,
             HttpServletResponse response) {
         
-        // SSE 필수 헤더 설정
+        // SSE 필수 헤더 설정 (CORS는 Nginx에서 처리)
         response.setHeader("Cache-Control", "no-cache, no-transform");
         response.setHeader("Connection", "keep-alive");
         response.setHeader("X-Accel-Buffering", "no");  // Nginx 버퍼링 비활성화
