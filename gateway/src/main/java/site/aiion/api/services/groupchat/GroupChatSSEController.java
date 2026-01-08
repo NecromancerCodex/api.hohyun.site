@@ -15,6 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,6 +28,7 @@ public class GroupChatSSEController {
     private final GroupChatRepository groupChatRepository;
     private final ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
     private final ConcurrentHashMap<String, SseEmitter> emitters = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, AtomicLong> lastMessageIds = new ConcurrentHashMap<>();
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "실시간 메시지 스트림 (SSE)", description = "단체 채팅방의 새로운 메시지를 실시간으로 받습니다. 인증 불필요 (Public).")
@@ -38,21 +40,25 @@ public class GroupChatSSEController {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // 무제한 타임아웃
         String emitterId = String.valueOf(System.currentTimeMillis());
         emitters.put(emitterId, emitter);
+        lastMessageIds.put(emitterId, new AtomicLong(lastId));
 
         // 연결 종료 시 정리
         emitter.onCompletion(() -> {
             log.info("SSE 연결 종료: emitterId={}", emitterId);
             emitters.remove(emitterId);
+            lastMessageIds.remove(emitterId);
         });
 
         emitter.onTimeout(() -> {
             log.info("SSE 연결 타임아웃: emitterId={}", emitterId);
             emitters.remove(emitterId);
+            lastMessageIds.remove(emitterId);
         });
 
         emitter.onError((ex) -> {
             log.error("SSE 연결 오류: emitterId={}", emitterId, ex);
             emitters.remove(emitterId);
+            lastMessageIds.remove(emitterId);
         });
 
         // 초기 메시지 전송
@@ -65,12 +71,17 @@ public class GroupChatSSEController {
                     return; // 연결이 종료된 경우
                 }
 
-                List<GroupChatModel> newMessages = getMessagesAfterId(lastId);
+                AtomicLong currentLastId = lastMessageIds.get(emitterId);
+                if (currentLastId == null) {
+                    return;
+                }
+
+                List<GroupChatModel> newMessages = getMessagesAfterId(currentLastId.get());
                 
                 if (!newMessages.isEmpty()) {
                     for (GroupChatModel msg : newMessages) {
                         if (msg.getId() != null) {
-                            lastId = msg.getId();
+                            currentLastId.set(msg.getId());
                         }
                         try {
                             emitter.send(SseEmitter.event()
@@ -80,6 +91,7 @@ public class GroupChatSSEController {
                         } catch (IOException e) {
                             log.error("SSE 메시지 전송 오류", e);
                             emitters.remove(emitterId);
+                            lastMessageIds.remove(emitterId);
                             return;
                         }
                     }
@@ -92,11 +104,13 @@ public class GroupChatSSEController {
                     } catch (IOException e) {
                         log.error("SSE keep-alive 전송 오류", e);
                         emitters.remove(emitterId);
+                        lastMessageIds.remove(emitterId);
                     }
                 }
             } catch (Exception e) {
                 log.error("SSE 스케줄러 오류", e);
                 emitters.remove(emitterId);
+                lastMessageIds.remove(emitterId);
             }
         }, 1, 1, TimeUnit.SECONDS);
 
